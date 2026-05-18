@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('book_ISBN')->constrained('books', 'ISBN')->onDelete('cascade');
             $table->foreignId('state_id')->constrained('instance_states');
-        });
+            $table->enum('condition', ['new', 'worn', 'almost_new']);
+            });
     }
 
     /**

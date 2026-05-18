@@ -18,9 +18,11 @@ return new class extends Migration
             $table->foreignId('book_instance_id')->constrained()->onDelete('cascade');
             $table->date('start_date');
             $table->date('end_date');
-            $table->date('returned_date')->nullable();
+            $table->timestamp('returned_at')->nullable();
             $table->date('due_date')->nullable();
-            $table->double('price');
+            $table->double('borrowing_cast');
+            $table->boolean('is_paid');
+            $table->timestamp('paid_at')->nullable();
         });
     }
 

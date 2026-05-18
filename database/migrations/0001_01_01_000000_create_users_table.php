@@ -15,11 +15,15 @@ return new class extends Migration
             $table->id();
             $table->string('first_name');
             $table->string('last_name');
-            $table->enum('role', ['admin', 'member', 'librarian'])->default('member');
+            $table->string('identity_number')->unique();
+            $table->string('adress')->nullable();
+            $table->enum('role', ['ADMIN', 'MEMBER', 'LIBRARIAN'])->default('MEMBER');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('phone');
-            $table->string('password');
+            $table->string('password_hash');
+            $table->string('photo_url')->nullable();
+            $table->date('participe_end_date')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

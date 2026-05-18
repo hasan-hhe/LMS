@@ -13,7 +13,9 @@ return new class extends Migration
     {
         Schema::create('authers', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('firstname');
+            $table->string('lastname');
+            $table->string('nationality');
         });
     }
 

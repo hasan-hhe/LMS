@@ -19,9 +19,15 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'first_name',
+        'last_name',
+        'phone',
+        'role',
+        'adress',
+        'photo_url',
+        'identity_number',
         'email',
-        'password',
+        'password_hash',
     ];
 
     /**
@@ -45,5 +51,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function fullName(){
+        return $this->first_name.' '.$this->last_name;
     }
 }
