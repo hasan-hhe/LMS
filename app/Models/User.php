@@ -2,22 +2,15 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasApiTokens;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'first_name',
         'last_name',
@@ -28,32 +21,69 @@ class User extends Authenticatable
         'identity_number',
         'email',
         'password_hash',
+        'participe_end_date',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
-        'password',
+        'password_hash',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'email_verified_at'   => 'datetime',
+            'participe_end_date'  => 'date',
         ];
     }
 
-    public function fullName(){
-        return $this->first_name.' '.$this->last_name;
+    public function getAuthPassword(): string
+    {
+        return $this->password_hash;
+    }
+
+    public function fullName(): string
+    {
+        return $this->first_name . ' ' . $this->last_name;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'ADMIN';
+    }
+
+    public function isLibrarian(): bool
+    {
+        return $this->role === 'LIBRARIAN';
+    }
+
+    public function isMember(): bool
+    {
+        return $this->role === 'MEMBER';
+    }
+
+    public function borrowings()
+    {
+        return $this->hasMany(Borrowing::class, 'member_id');
+    }
+
+    public function librarianBorrowings()
+    {
+        return $this->hasMany(Borrowing::class, 'librarian_id');
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
     }
 }

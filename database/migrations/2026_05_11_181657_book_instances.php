@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('book_instances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('book_ISBN')->constrained('books', 'ISBN')->onDelete('cascade');
+            $table->string('book_ISBN');
+            $table->foreign('book_ISBN')->references('ISBN')->on('books')->cascadeOnDelete();
             $table->foreignId('state_id')->constrained('instance_states');
             $table->enum('condition', ['new', 'worn', 'almost_new']);
             });

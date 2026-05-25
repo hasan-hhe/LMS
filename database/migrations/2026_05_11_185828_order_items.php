@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('order_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
-            $table->foreignId('book_ISBN')->constrained('books', 'ISBN');
+            $table->string('book_ISBN');
+            $table->foreign('book_ISBN')->references('ISBN')->on('books')->cascadeOnDelete();
             $table->double('price_once');
             $table->integer('count');
         });

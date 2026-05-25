@@ -1,0 +1,16 @@
+#myTab .nav-link:hover{
+    color: var(--bs-secondary-color);
+}
+
+#myTab .nav-item{
+    padding: 0 20px 0 20px !important;
+}
+
+#myTab .nav-link{
+    border-radius: 3px !important;
+}
+
+.card-pricing2{
+    box-shadow: 0 15px 15px 15px rgba(69,65,78,.08) !important;
+}
+

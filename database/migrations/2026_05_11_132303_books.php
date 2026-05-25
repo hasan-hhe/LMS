@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('books', function (Blueprint $table) {
-            $table->id('ISBN');
+            $table->string('ISBN')->primary();
             $table->foreignId('auther_id')->constrained();
             $table->foreignId('catagory_id')->constrained();
             $table->foreignId('publisher_id')->constrained();
