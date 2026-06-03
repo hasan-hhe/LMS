@@ -24,9 +24,11 @@ class User extends Authenticatable
         'last_name',
         'phone',
         'role',
+        'state',
         'adress',
         'photo_url',
         'identity_number',
+        'participe_end_date',
         'email',
         'password_hash',
     ];
@@ -51,6 +53,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'participe_end_date' => 'date',
         ];
     }
 

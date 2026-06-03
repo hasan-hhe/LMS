@@ -22,6 +22,7 @@ class UserRecource extends JsonResource
             'email' => $this->email,
             'adress' => $this->adress,
             'role' => $this->role,
+            'state' => $this->state,
             'photo_url' => $this->photo_url,
             'identity_number' => $this->identity_number,
         ];
