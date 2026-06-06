@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
@@ -16,9 +17,11 @@ class User extends Authenticatable
         'last_name',
         'phone',
         'role',
+        'state',
         'adress',
         'photo_url',
         'identity_number',
+        'participe_end_date',
         'email',
         'password_hash',
         'participe_end_date',

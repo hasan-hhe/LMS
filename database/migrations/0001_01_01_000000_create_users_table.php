@@ -18,12 +18,13 @@ return new class extends Migration
             $table->string('identity_number')->unique();
             $table->string('adress')->nullable();
             $table->enum('role', ['ADMIN', 'MEMBER', 'LIBRARIAN'])->default('MEMBER');
+            $table->enum('state', ['ACTIVE', 'PAUSED', 'CANCLED'])->default('ACTIVE');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('phone');
             $table->string('password_hash');
             $table->string('photo_url')->nullable();
-            $table->date('participe_end_date')->nullable();
+            $table->date('participe_end_date');
             $table->rememberToken();
             $table->timestamps();
         });
