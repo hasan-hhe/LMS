@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\App;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 class BooksController extends Controller
@@ -25,7 +26,7 @@ class BooksController extends Controller
     {
         return 'Update Book ' . $id;
     }
-    
+
     function destroy($id)
     {
         return 'Delete Book ' . $id;

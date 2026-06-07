@@ -1,7 +1,13 @@
 <?php
 
+use App\Http\Controllers\SwaggerController;
 use App\Http\Controllers\Web\DashboardViewController;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('api/documentation')->group(function () {
+    Route::get('/', [SwaggerController::class, 'index'])->name('api.documentation');
+    Route::get('/openapi.yaml', [SwaggerController::class, 'spec'])->name('api.documentation.spec');
+});
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
