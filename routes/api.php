@@ -33,4 +33,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/update-participe-date/{id}', [MemberController::class, 'updateParticipeDate']);
         Route::post('/get/{id}', [MemberController::class, 'get']);
     });
+        Route::prefix('books')->group(function () {
+        Route::get('/search',                     [BooksController::class, 'index']);    // search
+        Route::get('/{ISBN}',               [BooksController::class, 'show']);
+        Route::get('/{ISBN}/copies',        [BooksController::class, 'copies']);  // copy states
+        Route::post('/store',               [BooksController::class, 'store']);   // add book
+        Route::post('/update/{ISBN}',       [BooksController::class, 'update']);
+        Route::post('/destroy/{ISBN}',      [BooksController::class, 'destroy']);
+    });
+
+
 });
