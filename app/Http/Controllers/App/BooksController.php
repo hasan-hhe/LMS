@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Book;
@@ -31,7 +32,7 @@ class BooksController extends Controller
                 'title'             => 'required|string|max:255',
                 'discription'       => 'required|string',
                 'price'             => 'required|numeric|min:0',
-                'year_of_publishing'=> 'required|string|max:4',
+                'year_of_publishing' => 'required|string|max:4',
                 'number_edition'    => 'required|string',
                 // copies_count drives how many BookInstance rows are created
                 'copies_count'      => 'required|integer|min:1|max:500',
@@ -50,7 +51,7 @@ class BooksController extends Controller
         }
 
         // Resolve the "available" state ID once
-        $availableStateId = InstanceState::where('state', 'available')->value('id');
+        $availableStateId = InstanceState::query()->where('state', 'available')->value('id');
 
         try {
             // 1. Create the book record
@@ -184,9 +185,14 @@ class BooksController extends Controller
 
         $book = Book::findOrFail($ISBN);
         $book->update($request->only([
-            'title', 'discription', 'price',
-            'year_of_publishing', 'number_edition',
-            'auther_id', 'catagory_id', 'publisher_id',
+            'title',
+            'discription',
+            'price',
+            'year_of_publishing',
+            'number_edition',
+            'auther_id',
+            'catagory_id',
+            'publisher_id',
         ]));
 
         return response()->json(['body' => 'Book updated', 'book' => $book]);

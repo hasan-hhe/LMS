@@ -54,15 +54,24 @@
         USER_KEY,
 
         login(email, password) {
-            return apiClient.post('/auth/login', { email, password }).then(unwrap);
+            const url = window.LMS_ROUTES?.apiLogin;
+            if (url) {
+                return axios.post(url, { email, password }, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                }).then(unwrap);
+            }
+            return apiClient.post('/admin/auth/login', { email, password }).then(unwrap);
         },
 
         logout() {
-            return apiClient.post('/auth/logout').then(unwrap);
+            return apiClient.post('/admin/auth/logout').then(unwrap);
         },
 
         me() {
-            return apiClient.get('/auth/me').then(unwrap);
+            return apiClient.post('/admin/auth/me').then(unwrap);
         },
 
         getBooks(params) {

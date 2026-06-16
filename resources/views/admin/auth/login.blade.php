@@ -55,6 +55,8 @@
         window.LMS_ROUTES = {
             login: @json(route('admin.login')),
             dashboard: @json(route('admin.dashboard')),
+            apiLogin: @json(route('dashboard.auth.login')),
+            apiRegister: @json(route('dashboard.auth.register')),
         };
     </script>
     <script src="{{ asset('js/dashboard/api.js') }}"></script>
