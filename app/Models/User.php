@@ -16,8 +16,6 @@ class User extends Authenticatable
         'first_name',
         'last_name',
         'phone',
-        'role',
-        'state',
         'adress',
         'photo_url',
         'identity_number',
@@ -30,6 +28,11 @@ class User extends Authenticatable
     protected $hidden = [
         'password_hash',
         'remember_token',
+    ];
+
+    protected $attributes = [
+        'state' => 'ACTIVE',
+        'role' => 'MEMBER',
     ];
 
     protected function casts(): array

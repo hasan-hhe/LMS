@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\App;
 
+use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Member\UpdateMemberRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Carbon\Carbon;
@@ -13,36 +16,15 @@ use OpenApi\Attributes as OA;
 
 class MemberController extends Controller
 {
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
         $user = $request->user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
-            return response()->json([
-                'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ]);
+            return ResponseHelper::unauthorized();
         }
-        try {
-            $request->validate([
-                'first_name' => 'required|string',
-                'photo_image' => 'nullable|image|mimes:png,jpg,gif',
-                'adress' => 'nullable|string',
-                'identity_number' => 'required|unique:users|string|regex:/^[0-9]+$/',
-                'last_name' => 'required|string',
-                'participe_end_date' => 'required|date',
-                'phone' => 'required|string|regex:/^[0-9]+$/',
-                'email' => 'required|string|email|unique:users',
-                'password' => 'required|min:6'
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'body'   => $e->getMessage()
-            ], 400);
-            // return ResponseHelper::error($e->getMessage(), 422);
-        }
+        $request->validated();
 
         $date = Carbon::parse($request->participe_end_date);
-
         $photo = null;
         if ($request->hasFile('photo_image'))
             $photo = $request->file('photo_image')->store('Profiles', 'public');
@@ -53,7 +35,6 @@ class MemberController extends Controller
                 'last_name' => $request->last_name,
                 'adress' => $request->adress,
                 'phone' => $request->phone,
-                'role' => 'MEMBER',
                 'email' => $request->email,
                 'identity_number' => $request->identity_number,
                 'photo_url' => $photo,
@@ -62,18 +43,10 @@ class MemberController extends Controller
                 'first_name' => $request->first_name
             ]);
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'body' => $e->getMessage()
-            ], 400);
-            // return  ResponseHelper::error($e->getMessage(), 400);
+            return ResponseHelper::error($e->getMessage());
         }
 
-        // return ResponseHelper::success([
-        return response()->json([
-            'user'  => new UserResource($user2),
-            'body'  => 'تم تسجيل الحساب بنجاح'
-        ]);
+        return ResponseHelper::created(new UserResource($user2), 'تم تسجيل الحساب بنجاح');
     }
 
     #[OA\Post(
@@ -91,14 +64,10 @@ class MemberController extends Controller
     {
         $user = $request->user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
-            return response()->json([
-                'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ], 400);
+            return ResponseHelper::unauthorized();
         }
         $members = User::query()->where('role', 'MEMBER')->get();
-        return response()->json([
-            'user'  => UserResource::collection($members),
-        ]);
+        return ResponseHelper::paginated(UserResource::collection($members));
     }
 
     #[OA\Post(
@@ -132,68 +101,26 @@ class MemberController extends Controller
             new OA\Response(response: 422, description: 'Validation error'),
         ]
     )]
-    public function updateMember(Request $request, $id)
+    public function updateMember(UpdateMemberRequest $request, $id)
     {
         $user = $request->user();
-        if (!hash_equals($user->role, 'LIBRARIAN')) {
-            return response()->json([
-                'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ], 400);
-        }
-        try {
-            $request->validate([
-                'first_name' => 'nullable|string',
-                'photo_image' => 'nullable|image|mimes:png,jpg,gif',
-                'adress' => 'nullable|string',
-                'identity_number' => 'nullable|unique:users|string|regex:/^[0-9]+$/',
-                'last_name' => 'nullable|string',
-                'participe_end_date' => 'nullable|date',
-                'phone' => 'nullable|string|regex:/^[0-9]+$/',
-                'email' => 'nullable|string|email|unique:users',
-                'password' => 'nullable|min:6'
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'body'   => $e->getMessage()
-            ], 400);
-            // return ResponseHelper::error($e->getMessage(), 422);
-        }
-
-        $date = Carbon::parse($request->participe_end_date);
-
-        $photo = null;
-        if ($request->hasFile('photo_image'))
+        if (!hash_equals($user->role, 'LIBRARIAN')) 
+            return ResponseHelper::unauthorized();
+        $data = $request->validated();
+        // $date = Carbon::parse($request->participe_end_date);
+        if ($request->hasFile('photo_image')){
             $photo = $request->file('photo_image')->store('Profiles', 'public');
+            $data['photo_image'] = $photo;
+        }
         // $photo = uploadImage($request->file('avatar_image'), 'avatars', 'public');
-
         try {
             $user2 = User::query()->where('id', $id)->firstOrFail();
-            $user2->update([
-                'last_name' => $request->last_name,
-                'adress' => $request->adress,
-                'phone' => $request->phone,
-                'email' => $request->email,
-                'identity_number' => $request->identity_number,
-                'photo_url' => $photo,
-                'participe_end_date' => $date,
-                'password_hash' => Hash::make($request->password),
-                'first_name' => $request->first_name
-            ]);
+            $user2->update($data);
         } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'body' => $e->getMessage()
-            ], 400);
-            // return  ResponseHelper::error($e->getMessage(), 400);
+            return  ResponseHelper::error($e->getMessage(), 400);
         }
-
-        // return ResponseHelper::success([
-        return response()->json([
-            'user'  => new UserResource($user2),
-            'body'  => 'تم تحديث الحساب بنجاح'
-        ]);
-        // Similar validation and update logic as register method
+    
+        return ResponseHelper::success(new UserResource($user2), 'تم تحديث الحساب بنجاح');
     }
 
     #[OA\Post(
@@ -223,20 +150,22 @@ class MemberController extends Controller
     public function ControlAccountState(Request $request, $id)
     {
         $user = $request->user();
-        if (!hash_equals($user->role, 'LIBRARIAN')) {
-            return response()->json([
-                'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ], 400);
-        }
+        if (!hash_equals($user->role, 'LIBRARIAN')) 
+            return ResponseHelper::unauthorized();
+        
+        try{
         $request->validate([
-            'state' => 'required|in:ACTIVE, PAUSED, CANCLED'
+            'state' => 'required |in:ACTIVE,PAUSED,CANCLED'
         ]);
+        }catch(Exception $e){
+            return ResponseHelper::validationError($e->getMessage());
+        }
+
         User::query()->where('id', $id)->update([
             'state' => $request->state
         ]);
-        return response()->json([
-            'body' => 'تم تغيير حالة الحساب بنجاح'
-        ]);
+
+        return ResponseHelper::success("تم تغيير حالة الحساب بنجاح");
     }
 
     #[OA\Post(
@@ -263,25 +192,26 @@ class MemberController extends Controller
             new OA\Response(response: 422, description: 'Invalid date'),
         ]
     )]
-    public function updateParticipeDate(Request $request, $id)
+    public function updateParticipeDate(Request $request, int $id)
     {
         $user = $request->user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
-            return response()->json([
-                'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ], 400);
+            return ResponseHelper::unauthorized();
         }
-        $request->validate([
-            'participe_end_date' => 'required|date'
-        ]);
+        try{
+            $request->validate([
+                'participe_end_date' => 'required|date'
+            ]);
+        }catch(Exception $e){
+            return ResponseHelper::validationError($e->getMessage());
+        }
+
         $date = Carbon::parse($request->participe_end_date);
         User::query()->where('id', $id)->update([
             'participe_end_date' => $date
         ]);
-        return response()->json([
-            'user'  => new UserResource($user),
-            'body'  => 'تم تحديث تاريخ الاشتراك بنجاح'
-        ]);
+
+        return ResponseHelper::success('تم تحديث تاريخ الاشتراك بنجاح');
     }
 
     #[OA\Post(
@@ -299,26 +229,17 @@ class MemberController extends Controller
             new OA\Response(response: 404, description: 'Member not found'),
         ]
     )]
-    public function get(Request $request, string $id)
+    public function get(Request $request, int $id)
     {
         $user = $request->user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
-            return response()->json([
-                'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ], 400);
+            return ResponseHelper::unauthorized();
         }
         try {
             $user2 = User::query()->where('id', $id)->firstOrFail();
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'body' => 'المستخدم غير موجود'
-            ], 404);
-            // return ResponseHelper::error('المستخدم غير موجود', 404);
-        }
-        return response()->json([
-            'user'  => new UserResource($user2),
-            'body'  => 'تم إيجاد المستخدم بنجاح'
-        ]);
+        } catch (Exception $e){
+            return ResponseHelper::notFound('المستخدم غير موجود');
+            }
+            return ResponseHelper::success(new UserResource($user2), 'تم إيجاد المستخدم بنجاح');
     }
 }
