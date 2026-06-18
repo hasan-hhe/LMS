@@ -37,7 +37,7 @@ class MemberController extends Controller
             return response()->json([
                 'status' => 'error',
                 'body'   => $e->getMessage()
-            ]);
+            ], 400);
             // return ResponseHelper::error($e->getMessage(), 422);
         }
 
@@ -65,7 +65,7 @@ class MemberController extends Controller
             return response()->json([
                 'status' => 'error',
                 'body' => $e->getMessage()
-            ]);
+            ], 400);
             // return  ResponseHelper::error($e->getMessage(), 400);
         }
 
@@ -93,7 +93,7 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return response()->json([
                 'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ]);
+            ], 400);
         }
         $members = User::query()->where('role', 'MEMBER')->get();
         return response()->json([
@@ -138,7 +138,7 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return response()->json([
                 'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ]);
+            ], 400);
         }
         try {
             $request->validate([
@@ -156,7 +156,7 @@ class MemberController extends Controller
             return response()->json([
                 'status' => 'error',
                 'body'   => $e->getMessage()
-            ]);
+            ], 400);
             // return ResponseHelper::error($e->getMessage(), 422);
         }
 
@@ -184,7 +184,7 @@ class MemberController extends Controller
             return response()->json([
                 'status' => 'error',
                 'body' => $e->getMessage()
-            ]);
+            ], 400);
             // return  ResponseHelper::error($e->getMessage(), 400);
         }
 
@@ -226,7 +226,7 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return response()->json([
                 'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ]);
+            ], 400);
         }
         $request->validate([
             'state' => 'required|in:ACTIVE, PAUSED, CANCLED'
@@ -269,7 +269,7 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return response()->json([
                 'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ]);
+            ], 400);
         }
         $request->validate([
             'participe_end_date' => 'required|date'
@@ -305,7 +305,7 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return response()->json([
                 'body' => 'عذرا انت لا تملك الصلاحية لذلك'
-            ]);
+            ], 400);
         }
         try {
             $user2 = User::query()->where('id', $id)->firstOrFail();
@@ -313,7 +313,7 @@ class MemberController extends Controller
             return response()->json([
                 'status' => 'error',
                 'body' => 'المستخدم غير موجود'
-            ]);
+            ], 404);
             // return ResponseHelper::error('المستخدم غير موجود', 404);
         }
         return response()->json([
