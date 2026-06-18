@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('phone');
             $table->string('password_hash');
             $table->string('photo_url')->nullable();
-            $table->date('participe_end_date');
+            $table->date('participe_end_date')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
