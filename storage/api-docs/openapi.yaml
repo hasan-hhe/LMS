@@ -16,52 +16,11 @@ servers:
 
 tags:
   - name: Authentication
-    description: Register, login, and logout
+    description: Login and logout
   - name: Members
     description: Member management (requires LIBRARIAN role)
 
 paths:
-  /v1/auth/register:
-    post:
-      tags: [Authentication]
-      summary: Register a new account
-      description: Create a new MEMBER account and return the user profile. Does not return a token.
-      operationId: authRegister
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '200':
-          description: Account created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegisterResponse'
-              example:
-                user:
-                  id: 1
-                  first_name: Ahmad
-                  last_name: Mohammad
-                  full_name: Ahmad Mohammad
-                  email: ahmed@example.com
-                  phone: "0912345678"
-                  identity_number: "1234567890"
-                  adress: Damascus
-                  role: MEMBER
-                  photo_url: null
-                  participe_end_date: null
-                  created_at: "2026-06-07 10:00:00"
-                body: Account registered successfully
-        '422':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AppAuthErrorResponse'
-
   /v1/auth/login:
     post:
       tags: [Authentication]
@@ -143,8 +102,45 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /member/get-members:
+  /member/register:
     post:
+      tags: [Members]
+      summary: Register a new member
+      description: |
+        Create a new MEMBER account. **Requires:** valid token + LIBRARIAN role.
+      operationId: memberRegister
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterMemberRequest'
+      responses:
+        '201':
+          description: Member created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberSingleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberForbiddenResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberErrorResponse'
+
+  /member/get-members:
+    get:
       tags: [Members]
       summary: List all members
       description: |
@@ -170,7 +166,7 @@ paths:
                 $ref: '#/components/schemas/MemberForbiddenResponse'
 
   /member/get/{id}:
-    post:
+    get:
       tags: [Members]
       summary: Get member by ID
       description: |
@@ -207,7 +203,7 @@ paths:
                 body: User not found
 
   /member/update-member/{id}:
-    post:
+    put:
       tags: [Members]
       summary: Update member
       description: |
@@ -291,7 +287,7 @@ paths:
                 $ref: '#/components/schemas/MemberErrorResponse'
 
   /member/update-participe-date/{id}:
-    post:
+    patch:
       tags: [Members]
       summary: Update membership expiry date
       description: |
@@ -417,6 +413,58 @@ components:
           type: string
           nullable: true
           example: Damascus
+        photo_image:
+          type: string
+          format: binary
+          description: Profile photo (png, jpg, gif)
+
+    RegisterMemberRequest:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - phone
+        - identity_number
+        - password
+        - password_confirmation
+      properties:
+        first_name:
+          type: string
+          example: Ahmad
+        last_name:
+          type: string
+          example: Mohammad
+        email:
+          type: string
+          format: email
+          example: ahmed@example.com
+        phone:
+          type: string
+          pattern: '^[0-9]+$'
+          example: "0912345678"
+        identity_number:
+          type: string
+          pattern: '^[0-9]+$'
+          example: "1234567890"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: password123
+        password_confirmation:
+          type: string
+          format: password
+          example: password123
+        adress:
+          type: string
+          nullable: true
+          example: Damascus
+        participe_end_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2027-12-31"
         photo_image:
           type: string
           format: binary

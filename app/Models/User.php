@@ -22,7 +22,8 @@ class User extends Authenticatable
         'participe_end_date',
         'email',
         'password_hash',
-        'participe_end_date',
+        'role',
+        'state',
     ];
 
     protected $hidden = [

@@ -1,25 +1,25 @@
 @extends('admin.layouts.master')
-@section('title', 'الأعضاء')
+@section('title', 'أمناء المكتبة')
 @section('main-content')
 <div class="container">
     <div class="page-inner">
         @include('admin.components.page-header', [
-            'title' => 'الأعضاء',
-            'arr' => [['title' => 'الأعضاء', 'link' => route('admin.members.index')]],
+            'title' => 'أمناء المكتبة',
+            'arr' => [['title' => 'أمناء المكتبة', 'link' => route('admin.librarians.index')]],
         ])
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h4 class="card-title mb-0">قائمة الأعضاء</h4>
-                        <a href="{{ route('admin.members.create') }}" class="btn btn-primary">إضافة عضو</a>
+                        <h4 class="card-title mb-0">قائمة أمناء المكتبة</h4>
+                        <a href="{{ route('admin.librarians.create') }}" class="btn btn-primary">إضافة أمين مكتبة</a>
                     </div>
                 </div>
                 <div class="card-body">
-                    <h5 id="totalMembers">العدد: 0</h5>
+                    <h5 id="totalLibrarians">العدد: 0</h5>
                     <div class="row mb-3 g-2">
                         <div class="col-md-4">
-                            <input type="text" id="searchMembers" class="form-control" placeholder="بحث بالاسم أو البريد أو الهاتف...">
+                            <input type="text" id="searchLibrarians" class="form-control" placeholder="بحث بالاسم أو البريد أو الهاتف...">
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -32,13 +32,12 @@
                                     <th>الهاتف</th>
                                     <th>رقم الهوية</th>
                                     <th>حالة الحساب</th>
-                                    <th>انتهاء العضوية</th>
                                     <th>الإجراءات</th>
                                 </tr>
                             </thead>
-                            <tbody id="membersTableBody"></tbody>
+                            <tbody id="librariansTableBody"></tbody>
                         </table>
-                        <div id="membersPagination"></div>
+                        <div id="librariansPagination"></div>
                     </div>
                 </div>
             </div>
@@ -47,5 +46,5 @@
 </div>
 @endsection
 @push('scripts')
-<script src="{{ asset('js/dashboard/modules/members.js') }}"></script>
+<script src="{{ asset('js/dashboard/modules/librarians.js') }}"></script>
 @endpush

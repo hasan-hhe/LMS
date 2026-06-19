@@ -44,6 +44,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/members/{member}', [DashboardViewController::class, 'membersShow'])->name('members.show');
     Route::get('/members/{member}/edit', [DashboardViewController::class, 'membersEdit'])->name('members.edit');
 
+    Route::get('/librarians', [DashboardViewController::class, 'librariansIndex'])->name('librarians.index');
+    Route::get('/librarians/create', [DashboardViewController::class, 'librariansCreate'])->name('librarians.create');
+    Route::get('/librarians/{librarian}/edit', [DashboardViewController::class, 'librariansEdit'])->name('librarians.edit');
+
     Route::get('/borrowings', [DashboardViewController::class, 'borrowingsIndex'])->name('borrowings.index');
     Route::get('/borrowings/create', [DashboardViewController::class, 'borrowingsCreate'])->name('borrowings.create');
 

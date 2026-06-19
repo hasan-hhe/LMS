@@ -202,6 +202,26 @@
             return apiClient.get('/members/' + id + '/fines', { params }).then(unwrap);
         },
 
+        getLibrarians(params) {
+            return apiClient.get('/librarians', { params }).then(unwrap);
+        },
+
+        getLibrarian(id) {
+            return apiClient.get('/librarians/' + id).then(unwrap);
+        },
+
+        createLibrarian(formData) {
+            return apiClient.post('/librarians', formData).then(unwrap);
+        },
+
+        updateLibrarian(id, formData) {
+            return apiClient.put('/librarians/' + id, formData).then(unwrap);
+        },
+
+        deleteLibrarian(id) {
+            return apiClient.delete('/librarians/' + id).then(unwrap);
+        },
+
         getBorrowings(params) {
             return apiClient.get('/borrowings', { params }).then(unwrap);
         },

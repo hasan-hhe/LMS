@@ -156,6 +156,26 @@
             return map[state] || state;
         },
 
+        memberStateLabel(state) {
+            const map = {
+                ACTIVE: 'نشط',
+                PAUSED: 'موقوف',
+                CANCLED: 'ملغى',
+            };
+            return map[state] || state;
+        },
+
+        memberStateBadge(state) {
+            const map = {
+                ACTIVE: 'bg-success',
+                PAUSED: 'bg-warning text-dark',
+                CANCLED: 'bg-danger',
+            };
+            const label = LmsHelpers.memberStateLabel(state);
+            const badgeClass = map[state] || 'bg-secondary';
+            return '<span class="badge ' + badgeClass + '">' + label + '</span>';
+        },
+
         buildListParams(page, config) {
             config = config || {};
             const params = { page: page || 1 };

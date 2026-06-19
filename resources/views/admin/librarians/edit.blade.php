@@ -1,19 +1,19 @@
 @extends('admin.layouts.master')
-@section('title', 'تعديل عضو')
+@section('title', 'تعديل أمين مكتبة')
 @section('main-content')
 <div class="container">
     <div class="page-inner">
         @include('admin.components.page-header', [
-            'title' => 'تعديل عضو',
+            'title' => 'تعديل أمين مكتبة',
             'arr' => [
-                ['title' => 'الأعضاء', 'link' => route('admin.members.index')],
+                ['title' => 'أمناء المكتبة', 'link' => route('admin.librarians.index')],
                 ['title' => 'تعديل', 'link' => ''],
             ],
         ])
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <form id="memberForm" enctype="multipart/form-data">
+                    <form id="librarianForm" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-6 form-group mb-3">
                                 <label>الاسم الأول *</label>
@@ -33,11 +33,6 @@
                             <div class="col-md-6 form-group mb-3">
                                 <label>رقم الهاتف *</label>
                                 <input type="text" name="phone" class="form-control" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6 form-group mb-3">
-                                <label>تاريخ انتهاء العضوية</label>
-                                <input type="date" name="participe_end_date" class="form-control">
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
@@ -63,7 +58,7 @@
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">تحديث</button>
-                            <a href="{{ route('admin.members.index') }}" class="btn btn-secondary">إلغاء</a>
+                            <a href="{{ route('admin.librarians.index') }}" class="btn btn-secondary">إلغاء</a>
                         </div>
                     </form>
                 </div>
@@ -73,6 +68,6 @@
 </div>
 @endsection
 @push('scripts')
-<script>window.LMS_MEMBER_ID = @json($member);</script>
-<script src="{{ asset('js/dashboard/modules/members.js') }}"></script>
+<script>window.LMS_LIBRARIAN_ID = @json($librarian);</script>
+<script src="{{ asset('js/dashboard/modules/librarians.js') }}"></script>
 @endpush

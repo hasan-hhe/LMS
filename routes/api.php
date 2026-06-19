@@ -28,11 +28,11 @@ Route::prefix('v1/auth')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('member')->group(function () {
         Route::post('/register', [MemberController::class, 'register']);
-        Route::post('/get-members', [MemberController::class, 'index']);
+        Route::get('/get-members', [MemberController::class, 'index']);
         Route::put('/update-member/{id}', [MemberController::class, 'updateMember']);
         Route::post('/control-state/{id}', [MemberController::class, 'ControlAccountState']);
-        Route::post('/update-participe-date/{id}', [MemberController::class, 'updateParticipeDate']);
-        Route::post('/get/{id}', [MemberController::class, 'get']);
+        Route::patch('/update-participe-date/{id}', [MemberController::class, 'updateParticipeDate']);
+        Route::get('/get/{id}', [MemberController::class, 'get']);
     });
     Route::prefix('books')->group(function () {
         Route::get('/search',                     [BooksController::class, 'index']);    // search

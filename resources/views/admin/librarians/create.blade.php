@@ -1,19 +1,19 @@
 @extends('admin.layouts.master')
-@section('title', 'تعديل عضو')
+@section('title', 'إضافة أمين مكتبة')
 @section('main-content')
 <div class="container">
     <div class="page-inner">
         @include('admin.components.page-header', [
-            'title' => 'تعديل عضو',
+            'title' => 'إضافة أمين مكتبة',
             'arr' => [
-                ['title' => 'الأعضاء', 'link' => route('admin.members.index')],
-                ['title' => 'تعديل', 'link' => ''],
+                ['title' => 'أمناء المكتبة', 'link' => route('admin.librarians.index')],
+                ['title' => 'إضافة', 'link' => ''],
             ],
         ])
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <form id="memberForm" enctype="multipart/form-data">
+                    <form id="librarianForm" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-6 form-group mb-3">
                                 <label>الاسم الأول *</label>
@@ -36,17 +36,18 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
-                                <label>تاريخ انتهاء العضوية</label>
-                                <input type="date" name="participe_end_date" class="form-control">
+                                <label>رقم الهوية *</label>
+                                <input type="text" name="identity_number" class="form-control" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
-                                <label>حالة الحساب</label>
-                                <select name="state" class="form-control">
-                                    <option value="ACTIVE">نشط</option>
-                                    <option value="PAUSED">موقوف</option>
-                                    <option value="CANCLED">ملغى</option>
-                                </select>
+                                <label>كلمة المرور *</label>
+                                <input type="password" name="password" class="form-control" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6 form-group mb-3">
+                                <label>تأكيد كلمة المرور *</label>
+                                <input type="password" name="password_confirmation" class="form-control" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-12 form-group mb-3">
@@ -58,12 +59,11 @@
                                 <label>الصورة الشخصية</label>
                                 <input type="file" name="photo_image" class="form-control" accept="image/*">
                                 <div class="invalid-feedback"></div>
-                                <img id="photoPreview" src="" alt="" class="mt-2 rounded" style="max-height:120px;display:none;">
                             </div>
                         </div>
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">تحديث</button>
-                            <a href="{{ route('admin.members.index') }}" class="btn btn-secondary">إلغاء</a>
+                            <button type="submit" class="btn btn-primary">حفظ</button>
+                            <a href="{{ route('admin.librarians.index') }}" class="btn btn-secondary">إلغاء</a>
                         </div>
                     </form>
                 </div>
@@ -73,6 +73,6 @@
 </div>
 @endsection
 @push('scripts')
-<script>window.LMS_MEMBER_ID = @json($member);</script>
-<script src="{{ asset('js/dashboard/modules/members.js') }}"></script>
+<script>window.LMS_LIBRARIAN_ID = null;</script>
+<script src="{{ asset('js/dashboard/modules/librarians.js') }}"></script>
 @endpush

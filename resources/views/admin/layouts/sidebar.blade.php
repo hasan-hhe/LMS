@@ -79,6 +79,13 @@
                     </a>
                 </li>
 
+                <li class="nav-item {{ Route::is('admin.librarians.*') ? 'active' : '' }}" data-role="ADMIN">
+                    <a href="{{ route('admin.librarians.index') }}">
+                        <i class="fas fa-user-tie"></i>
+                        <p>أمناء المكتبة</p>
+                    </a>
+                </li>
+
                 <li class="nav-section">
                     <span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
                     <h4 class="text-section">الإعارة</h4>

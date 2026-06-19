@@ -67,11 +67,11 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return ResponseHelper::unauthorized();
         }
-        $members = User::query()->where('role', 'MEMBER')->get();
+        $members = User::query()->where('role', 'MEMBER')->paginate(15);
         return ResponseHelper::paginated(UserResource::collection($members));
     }
 
-    #[OA\Post(
+    #[OA\Put(
         path: '/member/update-member/{id}',
         tags: ['Members'],
         summary: 'Update member',
@@ -156,7 +156,7 @@ class MemberController extends Controller
 
         try {
             $request->validate([
-                'state' => 'required |in:ACTIVE,PAUSED,CANCLED'
+                'state' => 'required|in:ACTIVE,PAUSED,CANCLED'
             ]);
         } catch (Exception $e) {
             return ResponseHelper::validationError($e->getMessage());
@@ -169,7 +169,7 @@ class MemberController extends Controller
         return ResponseHelper::success("تم تغيير حالة الحساب بنجاح");
     }
 
-    #[OA\Post(
+    #[OA\Patch(
         path: '/member/update-participe-date/{id}',
         tags: ['Members'],
         summary: 'Update membership expiry date',
@@ -230,7 +230,7 @@ class MemberController extends Controller
             new OA\Response(response: 404, description: 'Member not found'),
         ]
     )]
-    public function get(Request $request, string $id)
+    public function get(string $id)
     {
         $user = Auth::user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {

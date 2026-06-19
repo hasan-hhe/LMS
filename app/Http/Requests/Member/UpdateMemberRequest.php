@@ -26,6 +26,7 @@ class UpdateMemberRequest extends FormRequest
             'adress'             => 'nullable|string|max:255',
             'photo_image'        => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'participe_end_date' => 'nullable|date',
+            'state'              => 'sometimes|in:ACTIVE,PAUSED,CANCLED',
         ];
     }
 

@@ -117,6 +117,21 @@ class DashboardViewController extends Controller
         return view('admin.members.show', compact('member'));
     }
 
+    public function librariansIndex(): View
+    {
+        return view('admin.librarians.index');
+    }
+
+    public function librariansCreate(): View
+    {
+        return view('admin.librarians.create');
+    }
+
+    public function librariansEdit(int $librarian): View
+    {
+        return view('admin.librarians.edit', compact('librarian'));
+    }
+
     public function borrowingsIndex(): View
     {
         return view('admin.borrowings.index');

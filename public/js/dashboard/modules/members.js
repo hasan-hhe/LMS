@@ -28,6 +28,7 @@
                     '<td>' + (member.email || '-') + '</td>' +
                     '<td>' + (member.phone || '-') + '</td>' +
                     '<td>' + (member.identity_number || '-') + '</td>' +
+                    '<td>' + LmsHelpers.memberStateBadge(member.state) + '</td>' +
                     '<td>' + LmsHelpers.formatDate(member.participe_end_date) + '</td>' +
                     '<td>' +
                     '<a href="' + editBaseUrl + '/' + member.id + '" class="btn btn-sm btn-info"><i class="fa fa-eye"></i></a> ' +
@@ -52,6 +53,9 @@
             form.phone.value = member.phone || '';
             form.adress.value = member.adress || '';
             form.participe_end_date.value = member.participe_end_date || '';
+            if (form.state) {
+                form.state.value = member.state || 'ACTIVE';
+            }
 
             if (member.photo_url) {
                 $('#photoPreview').attr('src', member.photo_url).show();
@@ -98,6 +102,7 @@
                 '<p><strong>البريد:</strong> ' + (member.email || '-') + '</p>' +
                 '<p><strong>الهاتف:</strong> ' + (member.phone || '-') + '</p>' +
                 '<p><strong>رقم الهوية:</strong> ' + (member.identity_number || '-') + '</p>' +
+                '<p><strong>حالة الحساب:</strong> ' + LmsHelpers.memberStateBadge(member.state) + '</p>' +
                 '<p><strong>العنوان:</strong> ' + (member.adress || '-') + '</p>' +
                 '<p><strong>انتهاء العضوية:</strong> ' + LmsHelpers.formatDate(member.participe_end_date) + '</p>' +
                 '<p><strong>تاريخ التسجيل:</strong> ' + LmsHelpers.formatDate(member.created_at) + '</p>' +

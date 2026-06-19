@@ -7,6 +7,7 @@ use App\Http\Controllers\Dashboard\BookInstanceController;
 use App\Http\Controllers\Dashboard\BorrowingController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\FineController;
+use App\Http\Controllers\Dashboard\LibrarianController;
 use App\Http\Controllers\Dashboard\MemberController;
 use App\Http\Controllers\Dashboard\OrderController;
 use App\Http\Controllers\Dashboard\PublisherController;
@@ -61,6 +62,15 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::apiResource('members', MemberController::class);
         Route::get('members/{member}/borrowings', [MemberController::class, 'borrowings']);
         Route::get('members/{member}/fines', [MemberController::class, 'fines']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Librarians — Admin Only
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:ADMIN')->group(function () {
+        Route::apiResource('librarians', LibrarianController::class);
     });
 
     /*
