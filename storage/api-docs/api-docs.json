@@ -149,12 +149,12 @@
             }
         },
         "/member/get-members": {
-            "post": {
+            "get": {
                 "tags": [
                     "Members"
                 ],
                 "summary": "List all members",
-                "operationId": "ff2ffc7df952e8d2544c1acdccbcdc6e",
+                "operationId": "c05f1cce8ad62214330ffd70213ec3f1",
                 "responses": {
                     "200": {
                         "description": "Members retrieved successfully"
@@ -381,12 +381,12 @@
             }
         },
         "/member/get/{id}": {
-            "post": {
+            "get": {
                 "tags": [
                     "Members"
                 ],
                 "summary": "Get member by ID",
-                "operationId": "cab2d07e672dbbdf349e6ce8ce42e796",
+                "operationId": "05a938a34f78364eb042697da3e609fd",
                 "parameters": [
                     {
                         "name": "id",

@@ -11,6 +11,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use OpenApi\Attributes as OA;
 
@@ -49,7 +50,7 @@ class MemberController extends Controller
         return ResponseHelper::created(new UserResource($user2), 'تم تسجيل الحساب بنجاح');
     }
 
-    #[OA\Post(
+    #[OA\Get(
         path: '/member/get-members',
         tags: ['Members'],
         summary: 'List all members',
@@ -60,9 +61,9 @@ class MemberController extends Controller
             new OA\Response(response: 403, description: 'Insufficient permissions'),
         ]
     )]
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
+        $user = Auth::user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return ResponseHelper::unauthorized();
         }
@@ -104,11 +105,11 @@ class MemberController extends Controller
     public function updateMember(UpdateMemberRequest $request, $id)
     {
         $user = $request->user();
-        if (!hash_equals($user->role, 'LIBRARIAN')) 
+        if (!hash_equals($user->role, 'LIBRARIAN'))
             return ResponseHelper::unauthorized();
         $data = $request->validated();
         // $date = Carbon::parse($request->participe_end_date);
-        if ($request->hasFile('photo_image')){
+        if ($request->hasFile('photo_image')) {
             $photo = $request->file('photo_image')->store('Profiles', 'public');
             $data['photo_image'] = $photo;
         }
@@ -119,7 +120,7 @@ class MemberController extends Controller
         } catch (Exception $e) {
             return  ResponseHelper::error($e->getMessage(), 400);
         }
-    
+
         return ResponseHelper::success(new UserResource($user2), 'تم تحديث الحساب بنجاح');
     }
 
@@ -147,17 +148,17 @@ class MemberController extends Controller
             new OA\Response(response: 422, description: 'Invalid state value'),
         ]
     )]
-    public function ControlAccountState(Request $request, $id)
+    public function ControlAccountState(Request $request, string $id)
     {
         $user = $request->user();
-        if (!hash_equals($user->role, 'LIBRARIAN')) 
+        if (!hash_equals($user->role, 'LIBRARIAN'))
             return ResponseHelper::unauthorized();
-        
-        try{
-        $request->validate([
-            'state' => 'required |in:ACTIVE,PAUSED,CANCLED'
-        ]);
-        }catch(Exception $e){
+
+        try {
+            $request->validate([
+                'state' => 'required |in:ACTIVE,PAUSED,CANCLED'
+            ]);
+        } catch (Exception $e) {
             return ResponseHelper::validationError($e->getMessage());
         }
 
@@ -192,17 +193,17 @@ class MemberController extends Controller
             new OA\Response(response: 422, description: 'Invalid date'),
         ]
     )]
-    public function updateParticipeDate(Request $request, int $id)
+    public function updateParticipeDate(Request $request, $id)
     {
         $user = $request->user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return ResponseHelper::unauthorized();
         }
-        try{
+        try {
             $request->validate([
                 'participe_end_date' => 'required|date'
             ]);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return ResponseHelper::validationError($e->getMessage());
         }
 
@@ -214,7 +215,7 @@ class MemberController extends Controller
         return ResponseHelper::success('تم تحديث تاريخ الاشتراك بنجاح');
     }
 
-    #[OA\Post(
+    #[OA\Get(
         path: '/member/get/{id}',
         tags: ['Members'],
         summary: 'Get member by ID',
@@ -229,17 +230,17 @@ class MemberController extends Controller
             new OA\Response(response: 404, description: 'Member not found'),
         ]
     )]
-    public function get(Request $request, int $id)
+    public function get(Request $request, string $id)
     {
-        $user = $request->user();
+        $user = Auth::user();
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return ResponseHelper::unauthorized();
         }
         try {
             $user2 = User::query()->where('id', $id)->firstOrFail();
-        } catch (Exception $e){
+        } catch (Exception $e) {
             return ResponseHelper::notFound('المستخدم غير موجود');
-            }
-            return ResponseHelper::success(new UserResource($user2), 'تم إيجاد المستخدم بنجاح');
+        }
+        return ResponseHelper::success(new UserResource($user2), 'تم إيجاد المستخدم بنجاح');
     }
 }
