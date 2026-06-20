@@ -65,7 +65,7 @@
             const request = id ? LmsApi.updateAuthor(id, data) : LmsApi.createAuthor(data);
 
             request.then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -84,7 +84,7 @@
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من حذف هذا المؤلف؟', function () {
                     LmsApi.deleteAuthor(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadAuthorsList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

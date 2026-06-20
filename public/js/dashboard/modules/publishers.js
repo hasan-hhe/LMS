@@ -63,7 +63,7 @@
             const request = id ? LmsApi.updatePublisher(id, data) : LmsApi.createPublisher(data);
 
             request.then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -82,7 +82,7 @@
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من حذف دار النشر هذه؟', function () {
                     LmsApi.deletePublisher(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadPublishersList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

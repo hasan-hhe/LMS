@@ -16,7 +16,7 @@ class UpdateMemberRequest extends FormRequest
 
     public function rules(): array
     {
-        $memberId = $this->route('member');
+        $memberId = $this->route('id');
 
         return [
             'first_name'         => 'sometimes|string|max:100',

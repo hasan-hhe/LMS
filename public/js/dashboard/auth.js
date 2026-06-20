@@ -39,7 +39,7 @@
                         return;
                     }
                     LmsHelpers.saveAuth(token, user);
-                    LmsHelpers.notify('success', res.message || 'تم تسجيل الدخول');
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم تسجيل الدخول'));
                     setTimeout(redirectToDashboard, 500);
                 }).catch(function (error) {
                     LmsHelpers.handleApiError(error, '#loginForm');

@@ -31,8 +31,8 @@ class AuthControllerTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonStructure([
-                'status',
                 'message',
+                'body',
                 'data' => ['user', 'token'],
             ]);
 
@@ -44,7 +44,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/v1/auth/register', []);
 
         $response->assertStatus(422)
-            ->assertJsonFragment(['status' => 'error']);
+            ->assertJsonFragment(['message' => 'error']);
     }
 
     public function test_register_fails_with_duplicate_email(): void
@@ -71,7 +71,7 @@ class AuthControllerTest extends TestCase
         Storage::disk('public')->assertExists($user->photo_url);
     }
 
-    public function test_login_returns_token_for_valid_credentials(): void
+    public function test_login_returns_token_for_valid_credentials_with_email(): void
     {
         User::factory()->create([
             'email'         => 'test@example.com',
@@ -79,14 +79,33 @@ class AuthControllerTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
-            'email'    => 'test@example.com',
+            'login'    => 'test@example.com',
             'password' => 'password123',
         ]);
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => ['user', 'token'],
+                'message',
+                'body',
+                'user',
+                'token',
             ]);
+    }
+
+    public function test_login_returns_token_for_valid_credentials_with_phone(): void
+    {
+        User::factory()->create([
+            'phone'         => '0501234567',
+            'password_hash' => bcrypt('password123'),
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'login'    => '0501234567',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['message' => 'success']);
     }
 
     public function test_login_fails_with_wrong_password(): void
@@ -97,11 +116,12 @@ class AuthControllerTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
-            'email'    => 'test@example.com',
+            'login'    => 'test@example.com',
             'password' => 'wrongpassword',
         ]);
 
-        $response->assertStatus(401);
+        $response->assertStatus(400)
+            ->assertJsonFragment(['body' => 'كلمة المرور غير صحيحة']);
     }
 
     public function test_logout_deletes_token(): void
@@ -113,7 +133,7 @@ class AuthControllerTest extends TestCase
             ->postJson('/api/v1/auth/logout');
 
         $response->assertStatus(200)
-            ->assertJsonFragment(['message' => 'تم تسجيل الخروج بنجاح']);
+            ->assertJsonFragment(['body' => 'تم تسجيل الخروج بنجاح']);
     }
 
     public function test_me_returns_authenticated_user(): void

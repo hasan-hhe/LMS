@@ -98,7 +98,7 @@
                 : LmsApi.createBookInstance(data);
 
             request.then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -119,7 +119,7 @@
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من حذف هذه النسخة؟', function () {
                     LmsApi.deleteBookInstance(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadBookInstancesList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

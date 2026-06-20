@@ -79,7 +79,7 @@
                 : LmsApi.createMember(formData);
 
             request.then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -185,7 +185,7 @@
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من حذف هذا العضو؟', function () {
                     LmsApi.deleteMember(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadMembersList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

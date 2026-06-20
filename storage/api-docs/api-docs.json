@@ -25,16 +25,12 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "email",
-                                    "phone",
+                                    "login",
                                     "password"
                                 ],
                                 "properties": {
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "phone": {
+                                    "login": {
+                                        "description": "Email or phone number",
                                         "type": "string"
                                     },
                                     "password": {

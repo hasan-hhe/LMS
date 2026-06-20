@@ -97,7 +97,7 @@
             const request = isbn ? LmsApi.updateBook(isbn, formData) : LmsApi.createBook(formData);
 
             request.then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = booksIndexUrl;
                 }, 500);
@@ -141,7 +141,7 @@
                 const isbn = $(this).data('isbn');
                 confirmDelete('هل أنت متأكد من حذف هذا الكتاب؟', function () {
                     LmsApi.deleteBook(isbn).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadBooksList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

@@ -57,7 +57,7 @@
             }).then(function (confirmed) {
                 if (!confirmed) return;
                 LmsApi.payFine(id).then(function (res) {
-                    LmsHelpers.notify('success', res.message);
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                     loadFinesList(1);
                 }).catch(LmsHelpers.handleApiError);
             });

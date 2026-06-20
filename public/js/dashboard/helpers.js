@@ -30,6 +30,15 @@
             }
         },
 
+        responseMessage(data, fallback) {
+            if (!data) return fallback || 'تمت العملية بنجاح';
+            if (data.body) return data.body;
+            if (data.message && data.message !== 'success' && data.message !== 'error') {
+                return data.message;
+            }
+            return fallback || 'تمت العملية بنجاح';
+        },
+
         getStoredUser() {
             try {
                 return JSON.parse(localStorage.getItem(LmsApi.USER_KEY) || 'null');
@@ -129,10 +138,10 @@
                 if (formSelector) {
                     LmsHelpers.showFormErrors(formSelector, data.errors);
                 }
-                LmsHelpers.notify('error', data.message || 'بيانات غير صحيحة');
+                LmsHelpers.notify('error', data.body || data.message || 'بيانات غير صحيحة');
                 return;
             }
-            LmsHelpers.notify('error', data?.message || 'حدث خطأ غير متوقع');
+            LmsHelpers.notify('error', data?.body || data?.message || 'حدث خطأ غير متوقع');
         },
 
         instanceStateLabel(state) {

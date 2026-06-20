@@ -77,7 +77,7 @@
                 new_end_date: newEndDate,
                 cause: cause || undefined,
             }).then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 loadBorrowingsList(1);
             }).catch(LmsHelpers.handleApiError);
         });
@@ -130,7 +130,7 @@
             const data = LmsHelpers.formToObject(form);
 
             LmsApi.createBorrowing(data).then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -155,7 +155,7 @@
                 }).then(function (confirmed) {
                     if (!confirmed) return;
                     LmsApi.returnBorrowing(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadBorrowingsList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

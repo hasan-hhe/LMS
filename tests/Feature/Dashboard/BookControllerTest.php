@@ -55,7 +55,7 @@ class BookControllerTest extends TestCase
             ->getJson('/api/v1/books');
 
         $response->assertStatus(200)
-            ->assertJsonStructure(['status', 'message', 'data', 'meta']);
+            ->assertJsonStructure(['message', 'body', 'data', 'meta']);
     }
 
     public function test_store_creates_book_successfully(): void

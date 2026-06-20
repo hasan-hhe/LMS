@@ -17,6 +17,39 @@ use OpenApi\Attributes as OA;
 
 class MemberController extends Controller
 {
+    #[OA\Post(
+        path: '/member/register',
+        tags: ['Members'],
+        summary: 'Register a new member',
+        description: 'Requires LIBRARIAN role.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    required: ['first_name', 'last_name', 'email', 'phone', 'identity_number', 'password', 'password_confirmation'],
+                    properties: [
+                        new OA\Property(property: 'first_name', type: 'string'),
+                        new OA\Property(property: 'last_name', type: 'string'),
+                        new OA\Property(property: 'email', type: 'string', format: 'email'),
+                        new OA\Property(property: 'phone', type: 'string'),
+                        new OA\Property(property: 'identity_number', type: 'string'),
+                        new OA\Property(property: 'password', type: 'string', format: 'password'),
+                        new OA\Property(property: 'password_confirmation', type: 'string', format: 'password'),
+                        new OA\Property(property: 'adress', type: 'string', nullable: true),
+                        new OA\Property(property: 'participe_end_date', type: 'string', format: 'date', nullable: true),
+                        new OA\Property(property: 'photo_image', type: 'string', format: 'binary', nullable: true),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Member created'),
+            new OA\Response(response: 401, description: 'Unauthorized'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
     public function register(RegisterRequest $request)
     {
         $user = $request->user();
@@ -108,12 +141,10 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN'))
             return ResponseHelper::unauthorized();
         $data = $request->validated();
-        // $date = Carbon::parse($request->participe_end_date);
         if ($request->hasFile('photo_image')) {
-            $photo = $request->file('photo_image')->store('Profiles', 'public');
-            $data['photo_image'] = $photo;
+            $data['photo_url'] = $request->file('photo_image')->store('Profiles', 'public');
         }
-        // $photo = uploadImage($request->file('avatar_image'), 'avatars', 'public');
+        unset($data['photo_image']);
         try {
             $user2 = User::query()->where('id', $id)->firstOrFail();
             $user2->update($data);

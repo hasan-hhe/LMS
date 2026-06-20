@@ -37,7 +37,7 @@
             }
 
             if (status === 403) {
-                LmsHelpers.notify('error', data?.message || 'ليس لديك صلاحية');
+                LmsHelpers.notify('error', LmsHelpers.responseMessage(data, 'ليس لديك صلاحية'));
             }
 
             return Promise.reject(error);

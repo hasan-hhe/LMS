@@ -65,7 +65,7 @@
             const request = id ? LmsApi.updateCategory(id, data) : LmsApi.createCategory(data);
 
             request.then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -84,7 +84,7 @@
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من حذف هذا التصنيف؟', function () {
                     LmsApi.deleteCategory(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadCategoriesList(1);
                     }).catch(LmsHelpers.handleApiError);
                 });

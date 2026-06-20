@@ -75,7 +75,7 @@
             const data = LmsHelpers.formToObject(form);
 
             LmsApi.createReservation(data).then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
                 }, 500);
@@ -93,7 +93,7 @@
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من إلغاء هذا الحجز؟', function () {
                     LmsApi.cancelReservation(id).then(function (res) {
-                        LmsHelpers.notify('success', res.message);
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadReservationsList({ page: 1 });
                     }).catch(LmsHelpers.handleApiError);
                 });

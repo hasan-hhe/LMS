@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\App\Auth\AuthController;
 use App\Http\Controllers\App\MemberController;
+use App\Http\Controllers\App\MemberDashboardController;
 use App\Http\Controllers\App\BooksController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,7 @@ Route::prefix('v1/auth')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me', [AuthController::class, 'me']);
     });
 });
 
@@ -27,6 +29,7 @@ Route::prefix('v1/auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('member')->group(function () {
+        Route::get('/dashboard', [MemberDashboardController::class, 'dashboard']);
         Route::post('/register', [MemberController::class, 'register']);
         Route::get('/get-members', [MemberController::class, 'index']);
         Route::put('/update-member/{id}', [MemberController::class, 'updateMember']);

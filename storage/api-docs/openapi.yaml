@@ -6,6 +6,8 @@ info:
 
     **Authentication:** Use a Bearer Token (Laravel Sanctum) for protected routes.
     Obtain a token via `POST /api/v1/auth/login`.
+
+    **Response format:** Most endpoints return `{ message, body, ... }` where `message` is `success` or `error`.
   version: 1.0.0
   contact:
     name: LMS Backend
@@ -16,16 +18,22 @@ servers:
 
 tags:
   - name: Authentication
-    description: Login and logout
+    description: Login, logout, and current user
+  - name: Dashboard
+    description: Member dashboard (requires MEMBER role)
   - name: Members
     description: Member management (requires LIBRARIAN role)
+  - name: Books
+    description: Book catalog and inventory
 
 paths:
   /v1/auth/login:
     post:
       tags: [Authentication]
       summary: Login
-      description: Authenticate with email, phone, and password. Returns user data and access token.
+      description: |
+        Authenticate with email or phone number and password.
+        The `login` field accepts either an email address or a phone number (digits only).
       operationId: authLogin
       requestBody:
         required: true
@@ -34,8 +42,7 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
             example:
-              email: ahmed@example.com
-              phone: "0912345678"
+              login: ahmed@example.com
               password: password123
       responses:
         '200':
@@ -44,43 +51,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
-              example:
-                user:
-                  id: 1
-                  first_name: Ahmad
-                  last_name: Mohammad
-                  full_name: Ahmad Mohammad
-                  email: ahmed@example.com
-                  phone: "0912345678"
-                  identity_number: "1234567890"
-                  adress: Damascus
-                  role: MEMBER
-                  photo_url: null
-                  participe_end_date: null
-                  created_at: "2026-06-07 10:00:00"
-                token: "1|xxxxxxxx"
-                body: Login successful
-        '401':
-          description: Invalid credentials
+        '400':
+          description: Incorrect password
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AppAuthErrorResponse'
-              examples:
-                wrongPassword:
-                  value:
-                    status: error
-                    body: Incorrect password
-                emailNotFound:
-                  value:
-                    status: error
-                    body: Email not found
+                $ref: '#/components/schemas/ApiErrorResponse'
+              example:
+                message: error
+                body: كلمة المرور غير صحيحة
+        '404':
+          description: Email or phone not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '422':
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AppAuthErrorResponse'
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
 
   /v1/auth/logout:
     post:
@@ -96,18 +87,64 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LogoutResponse'
+                $ref: '#/components/schemas/MessageResponse'
               example:
-                body: Logout successful
+                message: success
+                body: تم تسجيل الخروج بنجاح
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /v1/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+      description: Returns the authenticated user's profile.
+      operationId: authMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /member/dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Member dashboard
+      description: |
+        Returns the member's profile, active borrowings, and overdue counts.
+        **Requires:** valid token + MEMBER role.
+      operationId: memberDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard data retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDashboardResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not a member account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /member/register:
     post:
       tags: [Members]
       summary: Register a new member
       description: |
-        Create a new MEMBER account. **Requires:** valid token + LIBRARIAN role.
+        Create a new MEMBER account.
+        **Requires:** valid token + LIBRARIAN role.
       operationId: memberRegister
       security:
         - bearerAuth: []
@@ -123,47 +160,43 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberSingleResponse'
+                $ref: '#/components/schemas/DataResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberForbiddenResponse'
         '422':
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberErrorResponse'
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
 
   /member/get-members:
     get:
       tags: [Members]
-      summary: List all members
+      summary: List all members (paginated)
       description: |
-        Returns all users with the MEMBER role.
+        Returns paginated users with the MEMBER role (15 per page).
         **Requires:** valid token + LIBRARIAN role.
       operationId: memberGetMembers
       security:
         - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: Page number
       responses:
         '200':
           description: Members retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberListResponse'
+                $ref: '#/components/schemas/PaginatedUserResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberForbiddenResponse'
 
   /member/get/{id}:
     get:
@@ -183,24 +216,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberSingleResponse'
+                $ref: '#/components/schemas/DataResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberForbiddenResponse'
         '404':
           description: Member not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberErrorResponse'
-              example:
-                status: error
-                body: User not found
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /member/update-member/{id}:
     put:
@@ -226,21 +250,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberSingleResponse'
+                $ref: '#/components/schemas/DataResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberForbiddenResponse'
         '422':
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberErrorResponse'
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
 
   /member/control-state/{id}:
     post:
@@ -268,23 +286,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberMessageResponse'
-              example:
-                body: Account state changed successfully
+                $ref: '#/components/schemas/MessageResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Insufficient permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemberForbiddenResponse'
         '422':
           description: Invalid state value
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberErrorResponse'
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
 
   /member/update-participe-date/{id}:
     patch:
@@ -312,7 +322,146 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberSingleResponse'
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Invalid date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+
+  /books/search:
+    get:
+      tags: [Books]
+      summary: Search books
+      description: |
+        Search and filter books. All query parameters are optional and can be combined.
+        **Requires:** valid token.
+      operationId: booksSearch
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ISBN
+          in: query
+          schema:
+            type: integer
+          description: Exact ISBN match
+        - name: title
+          in: query
+          schema:
+            type: string
+          description: Partial title search (LIKE)
+        - name: auther_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by author ID
+        - name: catagory_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by category ID
+        - name: publisher_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by publisher ID
+        - name: year
+          in: query
+          schema:
+            type: string
+          description: Filter by year of publishing
+        - name: edition
+          in: query
+          schema:
+            type: string
+          description: Filter by edition number
+      responses:
+        '200':
+          description: Books retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookSearchResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /books/{ISBN}:
+    get:
+      tags: [Books]
+      summary: Get book by ISBN
+      description: |
+        Retrieve a single book with author, category, and publisher relations.
+        **Requires:** valid token.
+      operationId: booksShow
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BookISBN'
+      responses:
+        '200':
+          description: Book found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  book:
+                    $ref: '#/components/schemas/Book'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Book not found
+
+  /books/{ISBN}/copies:
+    get:
+      tags: [Books]
+      summary: List book copies and their states
+      description: |
+        Returns all physical copies of a book with availability summary.
+        **Requires:** valid token.
+      operationId: booksCopies
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BookISBN'
+      responses:
+        '200':
+          description: Copies retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookCopiesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Book not found
+
+  /books/store:
+    post:
+      tags: [Books]
+      summary: Add a new book
+      description: |
+        Create a book and the specified number of physical copies.
+        **Requires:** valid token + LIBRARIAN or ADMIN role.
+      operationId: booksStore
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreBookRequest'
+      responses:
+        '201':
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreBookResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -320,13 +469,107 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberForbiddenResponse'
+                type: object
+                properties:
+                  body:
+                    type: string
+                    example: Unauthorized
         '422':
-          description: Invalid date
+          description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MemberErrorResponse'
+                $ref: '#/components/schemas/LegacyErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegacyErrorResponse'
+
+  /books/update/{ISBN}:
+    post:
+      tags: [Books]
+      summary: Update a book
+      description: |
+        Update book metadata. Only provided fields are updated.
+        **Requires:** valid token + LIBRARIAN or ADMIN role.
+      operationId: booksUpdate
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BookISBN'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+      responses:
+        '200':
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: string
+                    example: Book updated
+                  book:
+                    $ref: '#/components/schemas/Book'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: string
+                    example: Unauthorized
+        '404':
+          description: Book not found
+
+  /books/destroy/{ISBN}:
+    post:
+      tags: [Books]
+      summary: Delete a book
+      description: |
+        Permanently delete a book record.
+        **Requires:** valid token + ADMIN role.
+      operationId: booksDestroy
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BookISBN'
+      responses:
+        '200':
+          description: Book deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: string
+                    example: Book deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: string
+                    example: Unauthorized
+        '404':
+          description: Book not found
 
 components:
   securitySchemes:
@@ -346,77 +589,42 @@ components:
         type: integer
         example: 5
 
+    BookISBN:
+      name: ISBN
+      in: path
+      required: true
+      description: Book ISBN (primary key)
+      schema:
+        type: integer
+        example: 9780141036144
+
   responses:
     Unauthorized:
       description: Unauthorized — missing or invalid token
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              message:
-                type: string
-                example: Unauthenticated.
+            oneOf:
+              - type: object
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+              - $ref: '#/components/schemas/ApiErrorResponse'
 
   schemas:
     LoginRequest:
       type: object
-      required: [email, phone, password]
+      required: [login, password]
       properties:
-        email:
+        login:
           type: string
-          format: email
+          description: Email address or phone number (digits only)
           example: ahmed@example.com
-        phone:
-          type: string
-          pattern: '^[0-9]+$'
-          example: "0912345678"
         password:
           type: string
           format: password
           example: password123
-
-    RegisterRequest:
-      type: object
-      required:
-        - first_name
-        - last_name
-        - email
-        - phone
-        - identity_number
-        - password
-      properties:
-        first_name:
-          type: string
-          example: Ahmad
-        last_name:
-          type: string
-          example: Mohammad
-        email:
-          type: string
-          format: email
-          example: ahmed@example.com
-        phone:
-          type: string
-          pattern: '^[0-9]+$'
-          example: "0912345678"
-        identity_number:
-          type: string
-          pattern: '^[0-9]+$'
-          example: "1234567890"
-        password:
-          type: string
-          format: password
-          minLength: 6
-          example: password123
-        adress:
-          type: string
-          nullable: true
-          example: Damascus
-        photo_image:
-          type: string
-          format: binary
-          description: Profile photo (png, jpg, gif)
 
     RegisterMemberRequest:
       type: object
@@ -464,11 +672,12 @@ components:
           type: string
           format: date
           nullable: true
+          description: Must be a future date if provided
           example: "2027-12-31"
         photo_image:
           type: string
           format: binary
-          description: Profile photo (png, jpg, gif)
+          description: Profile photo (png, jpg, jpeg, gif — max 2 MB)
 
     UpdateMemberRequest:
       type: object
@@ -487,15 +696,6 @@ components:
           type: string
           pattern: '^[0-9]+$'
           nullable: true
-        identity_number:
-          type: string
-          pattern: '^[0-9]+$'
-          nullable: true
-        password:
-          type: string
-          format: password
-          minLength: 6
-          nullable: true
         adress:
           type: string
           nullable: true
@@ -503,10 +703,14 @@ components:
           type: string
           format: date
           nullable: true
+        state:
+          type: string
+          enum: [ACTIVE, PAUSED, CANCLED]
+          nullable: true
         photo_image:
           type: string
           format: binary
-          description: Profile photo (png, jpg, gif)
+          description: Profile photo (png, jpg, jpeg — max 2 MB)
 
     ControlStateRequest:
       type: object
@@ -526,6 +730,91 @@ components:
           type: string
           format: date
           example: "2027-12-31"
+
+    StoreBookRequest:
+      type: object
+      required:
+        - ISBN
+        - auther_id
+        - catagory_id
+        - publisher_id
+        - title
+        - discription
+        - price
+        - year_of_publishing
+        - number_edition
+        - copies_count
+        - copy_condition
+      properties:
+        ISBN:
+          type: integer
+          description: Unique book ISBN
+          example: 9780141036144
+        auther_id:
+          type: integer
+          description: Author ID (authers table)
+          example: 1
+        catagory_id:
+          type: integer
+          description: Category ID (catagories table)
+          example: 2
+        publisher_id:
+          type: integer
+          description: Publisher ID
+          example: 3
+        title:
+          type: string
+          maxLength: 255
+          example: "1984"
+        discription:
+          type: string
+          example: "A dystopian social science fiction novel."
+        price:
+          type: number
+          minimum: 0
+          example: 25.50
+        year_of_publishing:
+          type: string
+          maxLength: 4
+          example: "1949"
+        number_edition:
+          type: string
+          example: "1"
+        copies_count:
+          type: integer
+          minimum: 1
+          maximum: 500
+          description: Number of physical copies to create
+          example: 5
+        copy_condition:
+          type: string
+          enum: [new, almost_new, worn]
+          example: new
+        cover_image:
+          type: string
+          format: binary
+          description: Cover image (png, jpg, gif — max 4 MB)
+
+    UpdateBookRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        discription:
+          type: string
+        price:
+          type: number
+          minimum: 0
+        year_of_publishing:
+          type: string
+        number_edition:
+          type: string
+        auther_id:
+          type: integer
+        catagory_id:
+          type: integer
+        publisher_id:
+          type: integer
 
     User:
       type: object
@@ -560,6 +849,11 @@ components:
           type: string
           enum: [MEMBER, LIBRARIAN, ADMIN]
           example: MEMBER
+        state:
+          type: string
+          enum: [ACTIVE, PAUSED, CANCLED]
+          nullable: true
+          example: ACTIVE
         photo_url:
           type: string
           format: uri
@@ -576,75 +870,270 @@ components:
           nullable: true
           example: "2026-06-07 10:00:00"
 
-    RegisterResponse:
+    Author:
       type: object
       properties:
-        user:
-          $ref: '#/components/schemas/User'
+        id:
+          type: integer
+        firstname:
+          type: string
+        lastname:
+          type: string
+        nationality:
+          type: string
+          nullable: true
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        discription:
+          type: string
+          nullable: true
+
+    Publisher:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        location:
+          type: string
+          nullable: true
+
+    Book:
+      type: object
+      properties:
+        ISBN:
+          type: integer
+        auther_id:
+          type: integer
+        catagory_id:
+          type: integer
+        publisher_id:
+          type: integer
+        title:
+          type: string
+        discription:
+          type: string
+        price:
+          type: number
+        amount:
+          type: integer
+          description: Total number of copies
+        rate_avg:
+          type: number
+        cover_url:
+          type: string
+          nullable: true
+        year_of_publishing:
+          type: string
+        number_edition:
+          type: string
+        author:
+          $ref: '#/components/schemas/Author'
+        category:
+          $ref: '#/components/schemas/Category'
+        publisher:
+          $ref: '#/components/schemas/Publisher'
+
+    BookCopy:
+      type: object
+      properties:
+        instance_id:
+          type: integer
+        condition:
+          type: string
+          enum: [new, almost_new, worn]
+        status:
+          type: string
+          description: Instance state (e.g. available, borrowed)
+          example: available
+
+    MemberBorrowing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        author:
+          type: string
+          nullable: true
+        isbn:
+          type: integer
+          nullable: true
+        end_date:
+          type: string
+          format: date
+        is_overdue:
+          type: boolean
+        days_overdue:
+          type: integer
+        days_until_due:
+          type: integer
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          enum: [success, error]
         body:
           type: string
-          example: Account registered successfully
+
+    DataResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          enum: [success]
+        body:
+          type: string
+        data:
+          $ref: '#/components/schemas/User'
 
     LoginResponse:
       type: object
       properties:
+        message:
+          type: string
+          enum: [success]
+        body:
+          type: string
+          example: تم تسجيل الدخول بنجاح
         user:
           $ref: '#/components/schemas/User'
         token:
           type: string
           example: "1|xxxxxxxxxxxxxxxx"
+
+    MeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          enum: [success]
         body:
           type: string
-          example: Login successful
+        user:
+          $ref: '#/components/schemas/User'
 
-    LogoutResponse:
+    MemberDashboardResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          enum: [success]
+        body:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+        borrowed_count:
+          type: integer
+          example: 2
+        overdue_count:
+          type: integer
+          example: 0
+        current_borrowings:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberBorrowing'
+
+    PaginatedUserResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          enum: [success]
+        body:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+
+    BookSearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        books:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+
+    BookCopiesResponse:
+      type: object
+      properties:
+        book:
+          $ref: '#/components/schemas/Book'
+        summary:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count of copies per status
+          example:
+            available: 3
+            borrowed: 1
+        copies:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookCopy'
+
+    StoreBookResponse:
       type: object
       properties:
         body:
           type: string
-          example: Logout successful
+          example: Book added successfully
+        book:
+          $ref: '#/components/schemas/Book'
+        copies_created:
+          type: integer
+          example: 5
 
-    AppAuthErrorResponse:
+    ApiErrorResponse:
       type: object
       properties:
-        status:
+        message:
           type: string
           enum: [error]
         body:
           type: string
-          example: Validation error message
 
-    MemberSingleResponse:
+    ApiValidationErrorResponse:
       type: object
       properties:
-        user:
-          $ref: '#/components/schemas/User'
+        message:
+          type: string
+          enum: [error]
         body:
           type: string
-          example: Member updated successfully
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
 
-    MemberListResponse:
-      type: object
-      properties:
-        user:
-          type: array
-          items:
-            $ref: '#/components/schemas/User'
-
-    MemberMessageResponse:
-      type: object
-      properties:
-        body:
-          type: string
-
-    MemberForbiddenResponse:
-      type: object
-      properties:
-        body:
-          type: string
-          example: You do not have permission to perform this action
-
-    MemberErrorResponse:
+    LegacyErrorResponse:
       type: object
       properties:
         status:

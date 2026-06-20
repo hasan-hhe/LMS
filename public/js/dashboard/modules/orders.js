@@ -152,7 +152,7 @@
             };
 
             LmsApi.createOrder(payload).then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = ordersIndexUrl;
                 }, 500);
@@ -210,7 +210,7 @@
             }
 
             LmsApi.updateOrderState(window.LMS_ORDER_ID, { state_id: stateId }).then(function (res) {
-                LmsHelpers.notify('success', res.message);
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 initOrderShowReload();
             }).catch(LmsHelpers.handleApiError);
         });

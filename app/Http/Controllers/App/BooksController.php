@@ -8,13 +8,45 @@ use App\Models\BookInstance;
 use App\Models\InstanceState;
 use Exception;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class BooksController extends Controller
 {
-    // -------------------------------------------------------
-    // FEATURE 1 — Add a book (librarian / admin only)
-    // POST /api/books/store
-    // -------------------------------------------------------
+    #[OA\Post(
+        path: '/books/store',
+        tags: ['Books'],
+        summary: 'Add a new book',
+        description: 'Requires LIBRARIAN or ADMIN role.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    required: ['ISBN', 'auther_id', 'catagory_id', 'publisher_id', 'title', 'discription', 'price', 'year_of_publishing', 'number_edition', 'copies_count', 'copy_condition'],
+                    properties: [
+                        new OA\Property(property: 'ISBN', type: 'integer'),
+                        new OA\Property(property: 'auther_id', type: 'integer'),
+                        new OA\Property(property: 'catagory_id', type: 'integer'),
+                        new OA\Property(property: 'publisher_id', type: 'integer'),
+                        new OA\Property(property: 'title', type: 'string'),
+                        new OA\Property(property: 'discription', type: 'string'),
+                        new OA\Property(property: 'price', type: 'number'),
+                        new OA\Property(property: 'year_of_publishing', type: 'string'),
+                        new OA\Property(property: 'number_edition', type: 'string'),
+                        new OA\Property(property: 'copies_count', type: 'integer', minimum: 1, maximum: 500),
+                        new OA\Property(property: 'copy_condition', type: 'string', enum: ['new', 'almost_new', 'worn']),
+                        new OA\Property(property: 'cover_image', type: 'string', format: 'binary', nullable: true),
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Book created'),
+            new OA\Response(response: 403, description: 'Insufficient permissions'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
     public function store(Request $request)
     {
         // Role guard — same pattern as MemberController
@@ -93,11 +125,25 @@ class BooksController extends Controller
         ], 201);
     }
 
-    // -------------------------------------------------------
-    // FEATURE 2 — Search books (multiple ways)
-    // GET /api/books?title=...&auther_id=...&catagory_id=...
-    //              &publisher_id=...&year=...&ISBN=...
-    // -------------------------------------------------------
+    #[OA\Get(
+        path: '/books/search',
+        tags: ['Books'],
+        summary: 'Search books',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'ISBN', in: 'query', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'title', in: 'query', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'auther_id', in: 'query', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'catagory_id', in: 'query', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'publisher_id', in: 'query', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'year', in: 'query', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'edition', in: 'query', schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Books retrieved'),
+            new OA\Response(response: 401, description: 'Unauthorized'),
+        ]
+    )]
     public function index(Request $request)
     {
         $query = Book::with('author', 'category', 'publisher');
@@ -134,10 +180,19 @@ class BooksController extends Controller
         ]);
     }
 
-    // -------------------------------------------------------
-    // FEATURE 3 — View all copies of a book + their states
-    // GET /api/books/{ISBN}/copies
-    // -------------------------------------------------------
+    #[OA\Get(
+        path: '/books/{ISBN}/copies',
+        tags: ['Books'],
+        summary: 'List book copies and their states',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'ISBN', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Copies retrieved'),
+            new OA\Response(response: 404, description: 'Book not found'),
+        ]
+    )]
     public function copies($ISBN)
     {
         $book = Book::with('author', 'category', 'publisher')->findOrFail($ISBN);
@@ -163,20 +218,54 @@ class BooksController extends Controller
         ]);
     }
 
-    // -------------------------------------------------------
-    // Show a single book
-    // GET /api/books/{ISBN}
-    // -------------------------------------------------------
+    #[OA\Get(
+        path: '/books/{ISBN}',
+        tags: ['Books'],
+        summary: 'Get book by ISBN',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'ISBN', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Book found'),
+            new OA\Response(response: 404, description: 'Book not found'),
+        ]
+    )]
     public function show($ISBN)
     {
         $book = Book::with('author', 'category', 'publisher')->findOrFail($ISBN);
         return response()->json(['book' => $book]);
     }
 
-    // -------------------------------------------------------
-    // Update a book (librarian / admin only)
-    // POST /api/books/update/{ISBN}
-    // -------------------------------------------------------
+    #[OA\Post(
+        path: '/books/update/{ISBN}',
+        tags: ['Books'],
+        summary: 'Update a book',
+        description: 'Requires LIBRARIAN or ADMIN role.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'ISBN', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'title', type: 'string'),
+                    new OA\Property(property: 'discription', type: 'string'),
+                    new OA\Property(property: 'price', type: 'number'),
+                    new OA\Property(property: 'year_of_publishing', type: 'string'),
+                    new OA\Property(property: 'number_edition', type: 'string'),
+                    new OA\Property(property: 'auther_id', type: 'integer'),
+                    new OA\Property(property: 'catagory_id', type: 'integer'),
+                    new OA\Property(property: 'publisher_id', type: 'integer'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Book updated'),
+            new OA\Response(response: 403, description: 'Insufficient permissions'),
+            new OA\Response(response: 404, description: 'Book not found'),
+        ]
+    )]
     public function update(Request $request, $ISBN)
     {
         $actor = $request->user();
@@ -199,10 +288,21 @@ class BooksController extends Controller
         return response()->json(['body' => 'Book updated', 'book' => $book]);
     }
 
-    // -------------------------------------------------------
-    // Delete a book (admin only)
-    // POST /api/books/destroy/{ISBN}
-    // -------------------------------------------------------
+    #[OA\Post(
+        path: '/books/destroy/{ISBN}',
+        tags: ['Books'],
+        summary: 'Delete a book',
+        description: 'Requires ADMIN role.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'ISBN', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Book deleted'),
+            new OA\Response(response: 403, description: 'Admin role required'),
+            new OA\Response(response: 404, description: 'Book not found'),
+        ]
+    )]
     public function destroy(Request $request, $ISBN)
     {
         $actor = $request->user();

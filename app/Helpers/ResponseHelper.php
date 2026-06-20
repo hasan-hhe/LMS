@@ -7,59 +7,64 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class ResponseHelper
 {
-    public static function success(mixed $data = null, string $message = 'تمت العملية بنجاح', int $statusCode = 200): JsonResponse
+    public static function success(mixed $data = null, string $body = 'تمت العملية بنجاح', int $statusCode = 200): JsonResponse
     {
-        return response()->json([
-            'status'  => 'success',
-            'message' => $message,
-            'data'    => $data,
-        ], $statusCode);
+        $response = [
+            'message' => 'success',
+            'body'    => $body,
+        ];
+
+        if ($data !== null) {
+            $response['data'] = $data;
+        }
+
+        return response()->json($response, $statusCode);
     }
 
-    public static function created(mixed $data = null, string $message = 'تم الإنشاء بنجاح'): JsonResponse
+    public static function created(mixed $data = null, string $body = 'تم الإنشاء بنجاح'): JsonResponse
     {
-        return self::success($data, $message, 201);
+        return self::success($data, $body, 201);
     }
 
-    public static function error(string $message = 'حدث خطأ ما', int $statusCode = 400, mixed $errors = null): JsonResponse
+    public static function error(string $body = 'حدث خطأ ما', int $statusCode = 400, mixed $errors = null): JsonResponse
     {
-        $body = [
-            'status'  => 'error',
-            'message' => $message,
+        $response = [
+            'message' => 'error',
+            'body'    => $body,
         ];
 
         if ($errors !== null) {
-            $body['errors'] = $errors;
+            $response['errors'] = $errors;
         }
 
-        return response()->json($body, $statusCode);
+        return response()->json($response, $statusCode);
     }
 
-    public static function notFound(string $message = 'العنصر غير موجود'): JsonResponse
+    public static function notFound(string $body = 'العنصر غير موجود'): JsonResponse
     {
-        return self::error($message, 404);
+        return self::error($body, 404);
     }
 
-    public static function unauthorized(string $message = 'غير مصرح لك بهذا الإجراء'): JsonResponse
+    public static function unauthorized(string $body = 'غير مصرح لك بهذا الإجراء'): JsonResponse
     {
-        return self::error($message, 401);
+        return self::error($body, 401);
     }
 
-    public static function forbidden(string $message = 'ليس لديك صلاحية'): JsonResponse
+    public static function forbidden(string $body = 'ليس لديك صلاحية'): JsonResponse
     {
-        return self::error($message, 403);
+        return self::error($body, 403);
     }
 
-    public static function validationError(mixed $errors, string $message = 'بيانات غير صحيحة'): JsonResponse
+    public static function validationError(mixed $errors, string $body = 'بيانات غير صحيحة'): JsonResponse
     {
-        return self::error($message, 422, $errors);
+        return self::error($body, 422, $errors);
     }
 
-    public static function paginated(ResourceCollection $collection, string $message = 'تم جلب البيانات بنجاح'): JsonResponse
+    public static function paginated(ResourceCollection $collection, string $body = 'تم جلب البيانات بنجاح'): JsonResponse
     {
         return response()->json([
-            'status'  => 'success',
-            'message' => $message,
+            'message' => 'success',
+            'body'    => $body,
             'data'    => $collection->items(),
             'meta'    => [
                 'current_page' => $collection->currentPage(),
@@ -70,11 +75,11 @@ class ResponseHelper
         ]);
     }
 
-    public static function noContent(string $message = 'تم الحذف بنجاح'): JsonResponse
+    public static function noContent(string $body = 'تم الحذف بنجاح'): JsonResponse
     {
         return response()->json([
-            'status'  => 'success',
-            'message' => $message,
+            'message' => 'success',
+            'body'    => $body,
         ], 200);
     }
 }
