@@ -94,6 +94,9 @@
 
         LmsApi.getMember(window.LMS_MEMBER_ID).then(function (res) {
             const member = res.data;
+            if (member.points_balance !== undefined && member.points_balance !== null) {
+                $('#memberPointsBalance').text(member.points_balance);
+            }
             $('#memberProfileContent').html(
                 '<div class="row">' +
                 '<div class="col-md-3">' + (member.photo_url ? '<img src="' + member.photo_url + '" class="img-fluid rounded">' : '') + '</div>' +
@@ -110,8 +113,11 @@
             );
         }).catch(LmsHelpers.handleApiError);
 
+        loadMemberPointsBalance();
+
         let borrowingsLoaded = false;
         let finesLoaded = false;
+        let pointsLoaded = false;
 
         $('#borrowings-tab').on('shown.bs.tab', function () {
             if (borrowingsLoaded) return;
@@ -123,6 +129,125 @@
             if (finesLoaded) return;
             finesLoaded = true;
             loadMemberFines(1);
+        });
+
+        $('#points-tab').on('shown.bs.tab', function () {
+            if (pointsLoaded) return;
+            pointsLoaded = true;
+            loadMemberPointsHistory(1);
+        });
+
+        $('#btnMemberTopUp').on('click', promptMemberTopUp);
+        $('#btnAdjustMemberPoints').on('click', promptMemberPointsAdjustment);
+    }
+
+    function loadMemberPointsBalance() {
+        return LmsApi.getPointsBalance(window.LMS_MEMBER_ID).then(function (res) {
+            const balance = res.data?.points_balance ?? res.data?.balance ?? res.data ?? 0;
+            $('#memberPointsBalance').text(balance);
+        }).catch(function (error) {
+            if (error.response?.status !== 404) {
+                LmsHelpers.handleApiError(error);
+            }
+        });
+    }
+
+    function promptMemberTopUp() {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML =
+            '<label class="form-label">كود الشحن</label>' +
+            '<input type="text" id="swalTopUpCode" class="form-control" placeholder="أدخل كود الشحن">';
+
+        swal({
+            title: 'شحن رصيد النقاط',
+            content: wrapper,
+            buttons: {
+                cancel: { text: 'إلغاء', visible: true, className: 'btn btn-secondary' },
+                confirm: { text: 'شحن', className: 'btn btn-primary' },
+            },
+        }).then(function (confirmed) {
+            if (!confirmed) return;
+            const code = document.getElementById('swalTopUpCode').value.trim();
+            if (!code) {
+                LmsHelpers.notify('error', 'كود الشحن مطلوب');
+                return;
+            }
+            LmsApi.topUpPoints({ code: code, member_id: window.LMS_MEMBER_ID }).then(function (res) {
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم شحن رصيد النقاط'));
+                loadMemberPointsBalance();
+                loadMemberPointsHistory(1);
+            }).catch(LmsHelpers.handleApiError);
+        });
+    }
+
+    function promptMemberPointsAdjustment() {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML =
+            '<label class="form-label">عدد النقاط (موجب للإضافة وسالب للخصم)</label>' +
+            '<input type="number" id="swalAdjustmentPoints" class="form-control mb-3">' +
+            '<label class="form-label">ملاحظة *</label>' +
+            '<input type="text" id="swalAdjustmentNote" class="form-control" placeholder="سبب التعديل">';
+
+        swal({
+            title: 'تعديل رصيد النقاط',
+            content: wrapper,
+            buttons: {
+                cancel: { text: 'إلغاء', visible: true, className: 'btn btn-secondary' },
+                confirm: { text: 'حفظ', className: 'btn btn-warning' },
+            },
+        }).then(function (confirmed) {
+            if (!confirmed) return;
+            const points = parseInt(document.getElementById('swalAdjustmentPoints').value, 10);
+            const note = document.getElementById('swalAdjustmentNote').value.trim();
+            if (!Number.isInteger(points) || points === 0 || !note) {
+                LmsHelpers.notify('error', 'أدخل عدداً صحيحاً غير صفري مع سبب التعديل');
+                return;
+            }
+            LmsApi.adjustPoints({
+                member_id: window.LMS_MEMBER_ID,
+                points: points,
+                note: note,
+            }).then(function (res) {
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم تعديل رصيد النقاط'));
+                loadMemberPointsBalance();
+                loadMemberPointsHistory(1);
+            }).catch(LmsHelpers.handleApiError);
+        });
+    }
+
+    function loadMemberPointsHistory(page) {
+        const transactionTypes = {
+            top_up: 'شحن رصيد',
+            adjust: 'تعديل إداري',
+            borrowing: 'استعارة',
+            fine: 'دفع غرامة',
+            order: 'شراء',
+            reward: 'مكافأة',
+        };
+        LmsHelpers.loadPaginatedTable({
+            apiCall: function (params) {
+                return LmsApi.getPointsHistory(window.LMS_MEMBER_ID, params).then(function (res) {
+                    if (Array.isArray(res.data?.data)) {
+                        return { data: res.data.data, meta: res.data.meta || res.meta };
+                    }
+                    return res;
+                });
+            },
+            params: { page: page || 1 },
+            tableBodySelector: '#memberPointsHistoryBody',
+            paginationSelector: '#memberPointsHistoryPagination',
+            renderRow: function (transaction, index, meta) {
+                const rowNum = ((meta.current_page || 1) - 1) * (meta.per_page || 15) + index + 1;
+                const points = transaction.points ?? transaction.amount ?? 0;
+                const pointsClass = points >= 0 ? 'text-success' : 'text-danger';
+                return '<tr>' +
+                    '<td>' + rowNum + '</td>' +
+                    '<td class="' + pointsClass + ' fw-bold">' + (points > 0 ? '+' : '') + points + '</td>' +
+                    '<td>' + (transactionTypes[transaction.type] || transaction.type || '-') + '</td>' +
+                    '<td>' + (transaction.note || transaction.description || transaction.type || '-') + '</td>' +
+                    '<td>' + LmsHelpers.formatDate(transaction.created_at) + '</td>' +
+                    '</tr>';
+            },
         });
     }
 

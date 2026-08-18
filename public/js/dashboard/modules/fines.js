@@ -26,12 +26,13 @@
                     : '<span class="badge bg-warning text-dark">غير مدفوعة</span>';
                 const payButton = fine.is_paid
                     ? ''
-                    : '<button type="button" class="btn btn-sm btn-success btn-pay-fine" data-id="' + fine.id + '"><i class="fa fa-money-bill"></i> دفع</button>';
+                    : '<button type="button" class="btn btn-sm btn-success btn-pay-fine" data-id="' + fine.id + '"><i class="fa fa-coins"></i> دفع من رصيد النقاط</button>';
                 return '<tr>' +
                     '<td>' + rowNum + '</td>' +
                     '<td>' + (fine.borrowing?.member?.full_name || '-') + '</td>' +
                     '<td>' + (fine.days_late || 0) + '</td>' +
                     '<td>' + (fine.fine || 0) + '</td>' +
+                    '<td>' + (fine.fine_points ?? 0) + '</td>' +
                     '<td>' + status + '</td>' +
                     '<td>' + LmsHelpers.formatDate(fine.paid_at) + '</td>' +
                     '<td>' + payButton + '</td>' +
@@ -48,11 +49,11 @@
 
         $(document).on('click', '.btn-pay-fine', function () {
             const id = $(this).data('id');
-            swal('هل أنت متأكد من تسجيل دفع هذه الغرامة؟', {
+            swal('سيتم خصم قيمة الغرامة من رصيد نقاط العضو. هل تريد المتابعة؟', {
                 icon: 'warning',
                 buttons: {
                     cancel: { text: 'إلغاء', visible: true, className: 'btn btn-secondary' },
-                    confirm: { text: 'تأكيد الدفع', className: 'btn btn-success' },
+                    confirm: { text: 'دفع من النقاط', className: 'btn btn-success' },
                 },
             }).then(function (confirmed) {
                 if (!confirmed) return;

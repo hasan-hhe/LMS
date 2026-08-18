@@ -22,7 +22,7 @@ class LookupStatesSeeder extends Seeder
                 OrderState::firstOrCreate(['state' => $state]);
             }
 
-            foreach (['pending', 'cancelled'] as $state) {
+            foreach (['pending', 'ready', 'fulfilled', 'cancelled'] as $state) {
                 ReservationState::firstOrCreate(['state' => $state]);
             }
 

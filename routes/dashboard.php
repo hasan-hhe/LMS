@@ -6,15 +6,19 @@ use App\Http\Controllers\Dashboard\BookController;
 use App\Http\Controllers\Dashboard\BookInstanceController;
 use App\Http\Controllers\Dashboard\BorrowingController;
 use App\Http\Controllers\Dashboard\CategoryController;
+use App\Http\Controllers\Dashboard\DigitalAssetController;
+use App\Http\Controllers\Dashboard\FavoriteController;
 use App\Http\Controllers\Dashboard\FineController;
 use App\Http\Controllers\Dashboard\LibrarianController;
 use App\Http\Controllers\Dashboard\MemberController;
 use App\Http\Controllers\Dashboard\OrderController;
+use App\Http\Controllers\Dashboard\PointController;
 use App\Http\Controllers\Dashboard\PublisherController;
 use App\Http\Controllers\Dashboard\ReportController;
 use App\Http\Controllers\Dashboard\ReservationController;
+use App\Http\Controllers\Dashboard\ReviewController;
+use App\Http\Controllers\Dashboard\TopUpCodeController;
 use Illuminate\Support\Facades\Route;
-
 
 /*
 |--------------------------------------------------------------------------
@@ -51,6 +55,18 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::apiResource('authors', AuthorController::class);
         Route::apiResource('categories', CategoryController::class);
         Route::apiResource('publishers', PublisherController::class);
+        Route::get('books/{isbn}/digital', [DigitalAssetController::class, 'show']);
+        Route::match(['post', 'put'], 'books/{isbn}/digital', [DigitalAssetController::class, 'upsert']);
+        Route::delete('books/{isbn}/digital', [DigitalAssetController::class, 'destroy']);
+        Route::get('favorites', [FavoriteController::class, 'index']);
+        Route::get('reviews', [ReviewController::class, 'index']);
+        Route::get('books/{isbn}/reviews', [ReviewController::class, 'byBook']);
+        Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
+        Route::get('points/balance', [PointController::class, 'balance']);
+        Route::get('points/history', [PointController::class, 'history']);
+        Route::post('points/top-up', [TopUpCodeController::class, 'redeem']);
+        Route::get('top-up-codes', [TopUpCodeController::class, 'index']);
+        Route::post('top-up-codes/generate', [TopUpCodeController::class, 'generate']);
     });
 
     /*
@@ -71,6 +87,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('role:ADMIN')->group(function () {
         Route::apiResource('librarians', LibrarianController::class);
+        Route::get('points/settings', [PointController::class, 'settings']);
+        Route::put('points/settings', [PointController::class, 'updateSettings']);
+        Route::post('points/adjust', [PointController::class, 'adjust']);
     });
 
     /*
@@ -105,6 +124,8 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::get('reservations', [ReservationController::class, 'index']);
         Route::post('reservations', [ReservationController::class, 'store']);
         Route::put('reservations/{id}/cancel', [ReservationController::class, 'cancel']);
+        Route::put('reservations/{id}/ready', [ReservationController::class, 'markReady']);
+        Route::put('reservations/{id}/fulfill', [ReservationController::class, 'fulfill']);
     });
 
     /*
@@ -130,5 +151,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::get('most-borrowed', [ReportController::class, 'mostBorrowed']);
         Route::get('fines-summary', [ReportController::class, 'finesSummary']);
         Route::get('inventory', [ReportController::class, 'inventory']);
+        Route::get('points-summary', [ReportController::class, 'pointsSummary']);
+        Route::get('points-export', [ReportController::class, 'pointsExport']);
+        Route::get('fines-export', [ReportController::class, 'finesExport']);
+        Route::get('overdue-export', [ReportController::class, 'overdueExport']);
     });
 });

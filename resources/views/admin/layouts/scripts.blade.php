@@ -24,7 +24,11 @@
         finesIndex: @json(route('admin.fines.index')),
         reservationsIndex: @json(route('admin.reservations.index')),
         ordersIndex: @json(route('admin.orders.index')),
+        reviewsIndex: @json(route('admin.reviews.index')),
+        pointsTopUpCodes: @json(route('admin.points.top-up-codes')),
+        pointsSettings: @json(route('admin.points.settings')),
         reportsOverdue: @json(route('admin.reports.overdue')),
+        reportsPoints: @json(route('admin.reports.points')),
     };
 
     window.LMS_LOOKUPS = {

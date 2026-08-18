@@ -172,6 +172,21 @@ class DashboardViewController extends Controller
         return view('admin.orders.show', compact('id'));
     }
 
+    public function reviewsIndex(): View
+    {
+        return view('admin.reviews.index');
+    }
+
+    public function pointsTopUpCodes(): View
+    {
+        return view('admin.points.top-up-codes');
+    }
+
+    public function pointsSettings(): View
+    {
+        return view('admin.points.settings');
+    }
+
     public function reportsOverdue(): View
     {
         return view('admin.reports.overdue');
@@ -190,5 +205,10 @@ class DashboardViewController extends Controller
     public function reportsInventory(): View
     {
         return view('admin.reports.inventory');
+    }
+
+    public function reportsPoints(): View
+    {
+        return view('admin.reports.points');
     }
 }

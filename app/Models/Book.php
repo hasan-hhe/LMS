@@ -24,6 +24,7 @@ class Book extends Model
         'title',
         'discription',
         'price',
+        'price_points',
         'amount',
         'rate_avg',
         'cover_url',
@@ -32,9 +33,10 @@ class Book extends Model
     ];
 
     protected $casts = [
-        'price'    => 'float',
+        'price' => 'float',
+        'price_points' => 'integer',
         'rate_avg' => 'float',
-        'amount'   => 'integer',
+        'amount' => 'integer',
     ];
 
     public function author()
@@ -60,6 +62,16 @@ class Book extends Model
     public function reviews()
     {
         return $this->hasMany(Review::class, 'book_ISBN', 'ISBN');
+    }
+
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class, 'book_ISBN', 'ISBN');
+    }
+
+    public function digitalAsset()
+    {
+        return $this->hasOne(DigitalAsset::class, 'book_ISBN', 'ISBN');
     }
 
     public function orderItems()

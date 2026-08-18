@@ -4,7 +4,9 @@ namespace Tests\Feature\Dashboard;
 
 use App\Models\Author;
 use App\Models\Book;
+use App\Models\BookInstance;
 use App\Models\Category;
+use App\Models\InstanceState;
 use App\Models\Publisher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,6 +31,7 @@ class BookControllerTest extends TestCase
         $this->author    = Author::create(['firstname' => 'محمد', 'lastname' => 'الغزالي', 'nationality' => 'مصري']);
         $this->category  = Category::create(['title' => 'فلسفة', 'discription' => 'كتب فلسفية']);
         $this->publisher = Publisher::create(['name' => 'دار النشر', 'location' => 'القاهرة']);
+        InstanceState::create(['state' => 'available']);
     }
 
     private function validBookPayload(array $overrides = []): array
@@ -69,13 +72,20 @@ class BookControllerTest extends TestCase
             ->assertJsonPath('data.title', 'إحياء علوم الدين');
 
         $this->assertDatabaseHas('books', ['ISBN' => '978-3-16-148410-0']);
+        $this->assertSame(10, BookInstance::where('book_ISBN', '978-3-16-148410-0')->count());
+        $this->assertDatabaseHas('book_instances', [
+            'book_ISBN' => '978-3-16-148410-0',
+            'condition' => 'new',
+        ]);
     }
 
     public function test_store_fails_with_duplicate_isbn(): void
     {
         $token = $this->admin->createToken('test')->plainTextToken;
-        $this->postJson('/api/v1/books', $this->validBookPayload())
-            ->assertHeader('Authorization');
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->postJson('/api/v1/books', $this->validBookPayload())
+            ->assertStatus(201);
 
         $this->withHeader('Authorization', 'Bearer ' . $token)
             ->postJson('/api/v1/books', $this->validBookPayload())
@@ -101,7 +111,7 @@ class BookControllerTest extends TestCase
     public function test_show_returns_book_data(): void
     {
         $token = $this->admin->createToken('test')->plainTextToken;
-        Book::create($this->validBookPayload() + ['cover_url' => null, 'rate_avg' => 0]);
+        Book::create($this->validBookPayload() + ['cover_url' => '', 'rate_avg' => 0]);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->getJson('/api/v1/books/978-3-16-148410-0');
@@ -122,7 +132,7 @@ class BookControllerTest extends TestCase
     public function test_update_modifies_book(): void
     {
         $token = $this->admin->createToken('test')->plainTextToken;
-        Book::create($this->validBookPayload() + ['cover_url' => null, 'rate_avg' => 0]);
+        Book::create($this->validBookPayload() + ['cover_url' => '', 'rate_avg' => 0]);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->putJson('/api/v1/books/978-3-16-148410-0', ['title' => 'عنوان محدث']);
@@ -134,7 +144,7 @@ class BookControllerTest extends TestCase
     public function test_destroy_deletes_book(): void
     {
         $token = $this->admin->createToken('test')->plainTextToken;
-        Book::create($this->validBookPayload() + ['cover_url' => null, 'rate_avg' => 0]);
+        Book::create($this->validBookPayload() + ['cover_url' => '', 'rate_avg' => 0]);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $token)
             ->deleteJson('/api/v1/books/978-3-16-148410-0');

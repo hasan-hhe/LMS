@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\UserPoint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -28,6 +29,7 @@ class AuthService
                 'participe_end_date' => $data['participe_end_date'] ?? null,
             ]);
 
+            UserPoint::firstOrCreate(['user_id' => $user->id], ['balance' => 0]);
             $token = $user->createToken('auth_token')->plainTextToken;
 
             DB::commit();

@@ -6,7 +6,11 @@ use App\Models\Book;
 use App\Models\BookInstance;
 use App\Models\Borrowing;
 use App\Models\LateFine;
+use App\Models\PointTransaction;
+use App\Models\TopUpCode;
 use App\Models\User;
+use App\Models\UserPoint;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ReportService
@@ -119,5 +123,58 @@ class ReportService
         } catch (\Exception $e) {
             throw $e;
         }
+    }
+
+    public function getPointsSummary(): array
+    {
+        return [
+            'total_balance_all_users' => (int) UserPoint::sum('balance'),
+            'total_top_ups' => $this->sumPointTransactions('top_up'),
+            'total_spent' => $this->sumPointTransactions('spend', true),
+            'total_rewards' => $this->sumPointTransactions('reward'),
+            'codes_unused' => TopUpCode::where('is_used', false)->count(),
+            'codes_used' => TopUpCode::where('is_used', true)->count(),
+        ];
+    }
+
+    public function getPointTransactionsForExport(array $filters): Collection
+    {
+        $limit = min(max((int) ($filters['limit'] ?? 1000), 1), 1000);
+
+        return PointTransaction::with('user:id,email')
+            ->when($filters['user_id'] ?? null, fn ($query, $userId) => $query->where('user_id', $userId))
+            ->when($filters['type'] ?? null, fn ($query, $type) => $query->where('type', $type))
+            ->when($filters['from'] ?? null, fn ($query, $from) => $query->whereDate('created_at', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($query, $to) => $query->whereDate('created_at', '<=', $to))
+            ->latest('id')
+            ->limit($limit)
+            ->get();
+    }
+
+    public function getFinesForExport(int $limit = 1000): Collection
+    {
+        return LateFine::with(['borrowing.member:id,email'])
+            ->latest('id')
+            ->limit(min(max($limit, 1), 1000))
+            ->get();
+    }
+
+    public function getOverdueForExport(int $limit = 1000): Collection
+    {
+        return Borrowing::with(['member:id,email', 'bookInstance.book'])
+            ->whereNull('returned_at')
+            ->where('end_date', '<', now())
+            ->orderBy('end_date')
+            ->limit(min(max($limit, 1), 1000))
+            ->get();
+    }
+
+    private function sumPointTransactions(string $type, bool $absolute = false): int
+    {
+        $expression = $absolute ? 'ABS(points)' : 'points';
+
+        return (int) PointTransaction::where('type', $type)
+            ->selectRaw("COALESCE(SUM({$expression}), 0) as total")
+            ->value('total');
     }
 }

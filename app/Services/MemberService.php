@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\UserPoint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -33,7 +34,7 @@ class MemberService
     public function getMember(int $id): User
     {
         try {
-            $member = User::where('role', 'MEMBER')->find($id);
+            $member = User::where('role', 'MEMBER')->with('userPoints')->find($id);
             if (!$member) {
                 throw new \Exception('العضو غير موجود');
             }
@@ -62,8 +63,10 @@ class MemberService
                 'participe_end_date' => $data['participe_end_date'] ?? null,
             ]);
 
+            UserPoint::firstOrCreate(['user_id' => $member->id], ['balance' => 0]);
+
             DB::commit();
-            return $member;
+            return $member->load('userPoints');
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;

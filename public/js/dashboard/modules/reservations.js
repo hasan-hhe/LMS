@@ -6,7 +6,8 @@
     function reservationStateLabel(state) {
         const map = {
             pending: 'قيد الانتظار',
-            fulfilled: 'مكتمل',
+            ready: 'جاهز للاستلام',
+            fulfilled: 'تم الاستلام',
             cancelled: 'ملغى',
             expired: 'منتهي',
         };
@@ -24,10 +25,14 @@
             renderRow: function (reservation, index, meta) {
                 const rowNum = ((meta.current_page || 1) - 1) * (meta.per_page || 15) + index + 1;
                 const state = reservation.state?.state;
-                const canCancel = state === 'pending';
-                const cancelButton = canCancel
-                    ? '<button type="button" class="btn btn-sm btn-danger btn-cancel-reservation" data-id="' + reservation.id + '"><i class="fa fa-times"></i> إلغاء</button>'
-                    : '';
+                const actions = [];
+                if (state === 'pending') {
+                    actions.push('<button type="button" class="btn btn-sm btn-info btn-ready-reservation" data-id="' + reservation.id + '"><i class="fa fa-bell"></i> جاهز</button>');
+                }
+                if (state === 'pending' || state === 'ready') {
+                    actions.push('<button type="button" class="btn btn-sm btn-success btn-fulfill-reservation" data-id="' + reservation.id + '"><i class="fa fa-check"></i> استلام</button>');
+                    actions.push('<button type="button" class="btn btn-sm btn-danger btn-cancel-reservation" data-id="' + reservation.id + '"><i class="fa fa-times"></i> إلغاء</button>');
+                }
                 return '<tr>' +
                     '<td>' + rowNum + '</td>' +
                     '<td>' + (reservation.user?.full_name || '-') + '</td>' +
@@ -35,7 +40,7 @@
                     '<td>' + (reservation.cause || '-') + '</td>' +
                     '<td>' + reservationStateLabel(state) + '</td>' +
                     '<td>' + LmsHelpers.formatDate(reservation.reserved_at) + '</td>' +
-                    '<td>' + cancelButton + '</td>' +
+                    '<td><div class="d-flex gap-1 flex-wrap">' + actions.join(' ') + '</div></td>' +
                     '</tr>';
             },
         });
@@ -97,6 +102,22 @@
                         loadReservationsList({ page: 1 });
                     }).catch(LmsHelpers.handleApiError);
                 });
+            });
+
+            $(document).on('click', '.btn-ready-reservation', function () {
+                const id = $(this).data('id');
+                LmsApi.markReservationReady(id).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                    loadReservationsList({ page: 1 });
+                }).catch(LmsHelpers.handleApiError);
+            });
+
+            $(document).on('click', '.btn-fulfill-reservation', function () {
+                const id = $(this).data('id');
+                LmsApi.fulfillReservation(id).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                    loadReservationsList({ page: 1 });
+                }).catch(LmsHelpers.handleApiError);
             });
         }
 

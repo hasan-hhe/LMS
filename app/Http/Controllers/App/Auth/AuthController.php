@@ -4,15 +4,88 @@ namespace App\Http\Controllers\App\Auth;
 
 use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Notifications\ResetPasswordNotification;
+use App\Services\AuthService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
 {
+    public function __construct(private AuthService $authService) {}
+
+    public function register(RegisterRequest $request)
+    {
+        try {
+            $result = $this->authService->register(
+                $request->validated(),
+                $request->file('photo_image')
+            );
+
+            return ResponseHelper::created([
+                'user' => new UserResource($result['user']),
+                'token' => $result['token'],
+            ], 'تم إنشاء حساب العضو بنجاح');
+        } catch (\Throwable $e) {
+            return ResponseHelper::error('تعذر إنشاء الحساب', 500);
+        }
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request)
+    {
+        $login = trim($request->validated('login'));
+        $user = User::query()
+            ->where(str_contains($login, '@') ? 'email' : 'phone', $login)
+            ->first();
+
+        if ($user) {
+            $plainToken = Str::random(64);
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $user->email],
+                ['token' => Hash::make($plainToken), 'created_at' => now()]
+            );
+            $user->notify(new ResetPasswordNotification($plainToken));
+            Log::info('Member password reset requested', [
+                'email' => $user->email,
+                'link' => url('/reset-password?email='.urlencode($user->email).'&token='.$plainToken),
+            ]);
+        }
+
+        return ResponseHelper::success(null, 'إذا كان الحساب موجوداً فسيتم إرسال تعليمات استعادة كلمة المرور');
+    }
+
+    public function resetPassword(ResetPasswordRequest $request)
+    {
+        $data = $request->validated();
+        $record = DB::table('password_reset_tokens')->where('email', $data['email'])->first();
+
+        if (! $record || ! Hash::check($data['token'], $record->token)
+            || now()->diffInMinutes($record->created_at) > 60) {
+            return ResponseHelper::error('رمز استعادة كلمة المرور غير صالح أو منتهي الصلاحية', 422);
+        }
+
+        $user = User::where('email', $data['email'])->first();
+        if (! $user) {
+            return ResponseHelper::error('رمز استعادة كلمة المرور غير صالح أو منتهي الصلاحية', 422);
+        }
+
+        DB::transaction(function () use ($user, $data): void {
+            $user->update(['password_hash' => Hash::make($data['password'])]);
+            $user->tokens()->delete();
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        });
+
+        return ResponseHelper::success(null, 'تم تغيير كلمة المرور بنجاح');
+    }
 
     #[OA\Post(
         path: '/v1/auth/login',
@@ -141,10 +214,9 @@ class AuthController extends Controller
     )]
     public function me(Request $request)
     {
-        return response()->json([
-            'message' => 'success',
-            'body'    => 'تم جلب البيانات بنجاح',
-            'user'    => new UserResource($request->user()),
-        ]);
+        return ResponseHelper::success(
+            new UserResource($request->user()),
+            'تم جلب البيانات بنجاح'
+        );
     }
 }

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\UserPoint;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,26 +19,26 @@ class DemoUsersSeeder extends Seeder
             User::updateOrCreate(
                 ['email' => 'admin@lms.test'],
                 [
-                    'first_name'      => 'مدير',
-                    'last_name'       => 'النظام',
-                    'phone'           => '0500000001',
+                    'first_name' => 'مدير',
+                    'last_name' => 'النظام',
+                    'phone' => '0500000001',
                     'identity_number' => '1000000001',
-                    'role'            => 'ADMIN',
-                    'adress'          => 'المكتبة المركزية',
-                    'password_hash'   => Hash::make(self::DEMO_PASSWORD),
+                    'role' => 'ADMIN',
+                    'adress' => 'المكتبة المركزية',
+                    'password_hash' => Hash::make(self::DEMO_PASSWORD),
                 ]
             );
 
             User::updateOrCreate(
                 ['email' => 'librarian@lms.test'],
                 [
-                    'first_name'      => 'أمين',
-                    'last_name'       => 'المكتبة',
-                    'phone'           => '0500000002',
+                    'first_name' => 'أمين',
+                    'last_name' => 'المكتبة',
+                    'phone' => '0500000002',
                     'identity_number' => '1000000002',
-                    'role'            => 'LIBRARIAN',
-                    'adress'          => 'المكتبة المركزية',
-                    'password_hash'   => Hash::make(self::DEMO_PASSWORD),
+                    'role' => 'LIBRARIAN',
+                    'adress' => 'المكتبة المركزية',
+                    'password_hash' => Hash::make(self::DEMO_PASSWORD),
                 ]
             );
 
@@ -48,19 +49,20 @@ class DemoUsersSeeder extends Seeder
             ];
 
             foreach ($members as $member) {
-                User::updateOrCreate(
+                $user = User::updateOrCreate(
                     ['email' => $member['email']],
                     [
-                        'first_name'         => $member['first_name'],
-                        'last_name'          => $member['last_name'],
-                        'phone'              => $member['phone'],
-                        'identity_number'    => $member['identity_number'],
-                        'role'               => 'MEMBER',
-                        'adress'             => 'الرياض',
-                        'password_hash'      => Hash::make(self::DEMO_PASSWORD),
+                        'first_name' => $member['first_name'],
+                        'last_name' => $member['last_name'],
+                        'phone' => $member['phone'],
+                        'identity_number' => $member['identity_number'],
+                        'role' => 'MEMBER',
+                        'adress' => 'الرياض',
+                        'password_hash' => Hash::make(self::DEMO_PASSWORD),
                         'participe_end_date' => now()->addYear()->toDateString(),
                     ]
                 );
+                UserPoint::updateOrCreate(['user_id' => $user->id], ['balance' => 500]);
             }
 
             DB::commit();

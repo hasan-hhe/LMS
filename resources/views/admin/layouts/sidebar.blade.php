@@ -124,6 +124,32 @@
                     </a>
                 </li>
 
+                <li class="nav-item {{ Route::is('admin.reviews.*') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
+                    <a href="{{ route('admin.reviews.index') }}">
+                        <i class="fas fa-star"></i>
+                        <p>التقييمات</p>
+                    </a>
+                </li>
+
+                <li class="nav-section" data-role="ADMIN,LIBRARIAN">
+                    <span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
+                    <h4 class="text-section">النقاط</h4>
+                </li>
+
+                <li class="nav-item {{ Route::is('admin.points.top-up-codes') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
+                    <a href="{{ route('admin.points.top-up-codes') }}">
+                        <i class="fas fa-ticket-alt"></i>
+                        <p>أكواد الشحن</p>
+                    </a>
+                </li>
+
+                <li class="nav-item {{ Route::is('admin.points.settings') ? 'active' : '' }}" data-role="ADMIN">
+                    <a href="{{ route('admin.points.settings') }}">
+                        <i class="fas fa-cog"></i>
+                        <p>إعدادات النقاط</p>
+                    </a>
+                </li>
+
                 <li class="nav-section">
                     <span class="sidebar-mini-icon"><i class="fa fa-ellipsis-h"></i></span>
                     <h4 class="text-section">التقارير</h4>
@@ -154,6 +180,13 @@
                     <a href="{{ route('admin.reports.inventory') }}">
                         <i class="fas fa-warehouse"></i>
                         <p>جرد المخزون</p>
+                    </a>
+                </li>
+
+                <li class="nav-item {{ Route::is('admin.reports.points') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
+                    <a href="{{ route('admin.reports.points') }}">
+                        <i class="fas fa-coins"></i>
+                        <p>اقتصاد النقاط</p>
                     </a>
                 </li>
             </ul>

@@ -56,6 +56,7 @@
                     '<td>' + orderStateLabel(order.state?.state) + '</td>' +
                     '<td>' + (order.total_amount || 0) + '</td>' +
                     '<td>' + (order.total_prices || 0) + '</td>' +
+                    '<td>' + (order.total_points ?? 0) + '</td>' +
                     '<td>' +
                     '<a href="' + showBaseUrl + '/' + order.id + '" class="btn btn-sm btn-info"><i class="fa fa-eye"></i></a>' +
                     '</td></tr>';
@@ -188,6 +189,7 @@
                 '<div class="col-md-6"><p><strong>الحالة:</strong> ' + orderStateLabel(order.state?.state) + '</p></div>' +
                 '<div class="col-md-6"><p><strong>إجمالي الكمية:</strong> ' + (order.total_amount || 0) + '</p></div>' +
                 '<div class="col-md-6"><p><strong>إجمالي السعر:</strong> ' + (order.total_prices || 0) + '</p></div>' +
+                '<div class="col-md-6"><p><strong>إجمالي النقاط:</strong> ' + (order.total_points ?? 0) + ' نقطة</p></div>' +
                 '</div>' +
                 '<h5>عناصر الطلب</h5>' +
                 '<div class="table-responsive">' +

@@ -45,4 +45,24 @@ class ReservationController extends Controller
             return ResponseHelper::error($e->getMessage(), 422);
         }
     }
+
+    public function markReady(int $id): JsonResponse
+    {
+        try {
+            $reservation = $this->reservationService->markReady($id);
+            return ResponseHelper::success(new ReservationResource($reservation), 'تم تجهيز الحجز للإشعار والاستلام');
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
+    }
+
+    public function fulfill(int $id): JsonResponse
+    {
+        try {
+            $reservation = $this->reservationService->fulfillReservation($id);
+            return ResponseHelper::success(new ReservationResource($reservation), 'تم تأكيد استلام الحجز');
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
+    }
 }

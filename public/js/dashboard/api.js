@@ -250,6 +250,40 @@
             return apiClient.put('/fines/' + id + '/pay').then(unwrap);
         },
 
+        getPointsBalance(memberId) {
+            return apiClient.get('/points/balance', { params: { member_id: memberId } }).then(unwrap);
+        },
+
+        getPointsHistory(memberId, params) {
+            return apiClient.get('/points/history', {
+                params: Object.assign({}, params || {}, { member_id: memberId }),
+            }).then(unwrap);
+        },
+
+        topUpPoints(data) {
+            return apiClient.post('/points/top-up', data).then(unwrap);
+        },
+
+        getPointsSettings() {
+            return apiClient.get('/points/settings').then(unwrap);
+        },
+
+        updatePointsSettings(data) {
+            return apiClient.put('/points/settings', data).then(unwrap);
+        },
+
+        adjustPoints(data) {
+            return apiClient.post('/points/adjust', data).then(unwrap);
+        },
+
+        getTopUpCodes(params) {
+            return apiClient.get('/top-up-codes', { params }).then(unwrap);
+        },
+
+        generateTopUpCodes(data) {
+            return apiClient.post('/top-up-codes/generate', data).then(unwrap);
+        },
+
         getReservations(params) {
             return apiClient.get('/reservations', { params }).then(unwrap);
         },
@@ -260,6 +294,14 @@
 
         cancelReservation(id) {
             return apiClient.put('/reservations/' + id + '/cancel').then(unwrap);
+        },
+
+        markReservationReady(id) {
+            return apiClient.put('/reservations/' + id + '/ready').then(unwrap);
+        },
+
+        fulfillReservation(id) {
+            return apiClient.put('/reservations/' + id + '/fulfill').then(unwrap);
         },
 
         getOrders(params) {
@@ -296,6 +338,65 @@
 
         getReportInventory() {
             return apiClient.get('/reports/inventory').then(unwrap);
+        },
+
+        getReportPointsSummary() {
+            return apiClient.get('/reports/points-summary').then(unwrap);
+        },
+
+        downloadReport(path, filename, params) {
+            return apiClient.get(path, { params, responseType: 'blob' }).then(function (response) {
+                const url = URL.createObjectURL(response.data);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            });
+        },
+
+        downloadPointsExport(params) {
+            return this.downloadReport('/reports/points-export', 'point-transactions.csv', params);
+        },
+
+        downloadFinesExport(params) {
+            return this.downloadReport('/reports/fines-export', 'fines.csv', params);
+        },
+
+        downloadOverdueExport(params) {
+            return this.downloadReport('/reports/overdue-export', 'overdue-borrowings.csv', params);
+        },
+
+        getReviews(params) {
+            return apiClient.get('/reviews', { params }).then(unwrap);
+        },
+
+        getBookReviews(isbn) {
+            return apiClient.get('/books/' + encodeURIComponent(isbn) + '/reviews').then(unwrap);
+        },
+
+        deleteReview(id) {
+            return apiClient.delete('/reviews/' + id).then(unwrap);
+        },
+
+        getDigitalAsset(isbn) {
+            return apiClient.get('/books/' + encodeURIComponent(isbn) + '/digital').then(unwrap);
+        },
+
+        upsertDigitalAsset(isbn, data) {
+            return apiClient.put('/books/' + encodeURIComponent(isbn) + '/digital', data).then(unwrap);
+        },
+
+        deleteDigitalAsset(isbn) {
+            return apiClient.delete('/books/' + encodeURIComponent(isbn) + '/digital').then(unwrap);
+        },
+
+        getMemberFavorites(memberId, params) {
+            return apiClient.get('/favorites', {
+                params: Object.assign({}, params || {}, { member_id: memberId }),
+            }).then(unwrap);
         },
     };
 })();

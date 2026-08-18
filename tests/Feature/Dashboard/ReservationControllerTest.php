@@ -32,7 +32,11 @@ class ReservationControllerTest extends TestCase
         $this->member         = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);
         $this->pendingState   = ReservationState::create(['state' => 'pending']);
         $this->cancelledState = ReservationState::create(['state' => 'cancelled']);
+        ReservationState::create(['state' => 'ready']);
+        ReservationState::create(['state' => 'fulfilled']);
 
+        InstanceState::create(['state' => 'available']);
+        InstanceState::create(['state' => 'reserved']);
         $state    = InstanceState::create(['state' => 'borrowed']);
         $author   = Author::create(['firstname' => 'م', 'lastname' => 'ن', 'nationality' => 'أ']);
         $category = Category::create(['title' => 'عام', 'discription' => 'وصف']);
@@ -40,7 +44,7 @@ class ReservationControllerTest extends TestCase
         $book     = Book::create([
             'ISBN' => '978-res-test', 'auther_id' => $author->id, 'catagory_id' => $category->id,
             'publisher_id' => $pub->id, 'title' => 'ك', 'discription' => 'و', 'price' => 20,
-            'amount' => 1, 'rate_avg' => 0, 'cover_url' => null, 'year_of_publishing' => '2020', 'number_edition' => '1',
+            'amount' => 1, 'rate_avg' => 0, 'cover_url' => '', 'year_of_publishing' => '2020', 'number_edition' => '1',
         ]);
 
         $this->instance = BookInstance::create(['book_ISBN' => $book->ISBN, 'state_id' => $state->id, 'condition' => 'new']);
@@ -69,7 +73,7 @@ class ReservationControllerTest extends TestCase
             'user_id'          => $this->member->id,
             'book_instance_id' => $this->instance->id,
             'state_id'         => $this->pendingState->id,
-            'cause'            => null,
+            'cause' => '',
             'reserved_at'      => now(),
         ]);
 
@@ -89,7 +93,7 @@ class ReservationControllerTest extends TestCase
             'user_id'          => $this->member->id,
             'book_instance_id' => $this->instance->id,
             'state_id'         => $this->pendingState->id,
-            'cause'            => null,
+            'cause' => '',
             'reserved_at'      => now(),
         ]);
 

@@ -49,7 +49,7 @@ class BorrowingControllerTest extends TestCase
             'price'              => 20.0,
             'amount'             => 1,
             'rate_avg'           => 0,
-            'cover_url'          => null,
+            'cover_url' => '',
             'year_of_publishing' => '2020',
             'number_edition'     => '1',
         ]);

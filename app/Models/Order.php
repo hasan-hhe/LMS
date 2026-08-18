@@ -14,11 +14,13 @@ class Order extends Model
         'user_id',
         'state_id',
         'total_prices',
+        'total_points',
         'total_amount',
     ];
 
     protected $casts = [
         'total_prices' => 'float',
+        'total_points' => 'integer',
         'total_amount' => 'integer',
     ];
 

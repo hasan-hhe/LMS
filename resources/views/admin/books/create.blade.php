@@ -46,21 +46,26 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-3 form-group mb-3">
-                                <label>السعر *</label>
+                                <label>السعر (ل.س) *</label>
                                 <input type="number" step="0.01" name="price" class="form-control" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-3 form-group mb-3">
+                                <label>سعر النقاط *</label>
+                                <input type="number" min="0" name="price_points" class="form-control" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-2 form-group mb-3">
                                 <label>الكمية *</label>
                                 <input type="number" name="amount" class="form-control" required>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-3 form-group mb-3">
+                            <div class="col-md-2 form-group mb-3">
                                 <label>سنة النشر *</label>
                                 <input type="text" name="year_of_publishing" class="form-control" required>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-3 form-group mb-3">
+                            <div class="col-md-2 form-group mb-3">
                                 <label>رقم الطبعة *</label>
                                 <input type="text" name="number_edition" class="form-control" required>
                                 <div class="invalid-feedback"></div>

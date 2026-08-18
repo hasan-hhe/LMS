@@ -2,12 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\Borrowing;
 use App\Models\LateFine;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class FineService
 {
-    public function listFines(array $filters): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    public function __construct(private PointService $pointService) {}
+
+    public function listFines(array $filters): LengthAwarePaginator
     {
         try {
             $query = LateFine::with(['borrowing.member', 'borrowing.bookInstance.book']);
@@ -16,8 +20,8 @@ class FineService
                 $query->where('is_paid', $filters['is_paid'] === 'true');
             }
 
-            if (!empty($filters['member_id'])) {
-                $query->whereHas('borrowing', fn($q) => $q->where('member_id', $filters['member_id']));
+            if (! empty($filters['member_id'])) {
+                $query->whereHas('borrowing', fn ($q) => $q->where('member_id', $filters['member_id']));
             }
 
             return $query->orderByDesc('id')->paginate(15);
@@ -30,15 +34,28 @@ class FineService
     {
         DB::beginTransaction();
         try {
-            $fine = LateFine::find($fineId);
-            if (!$fine) {
+            $fine = LateFine::with('borrowing.member')->lockForUpdate()->find($fineId);
+            if (! $fine) {
                 throw new \Exception('الغرامة غير موجودة');
             }
             if ($fine->is_paid) {
                 throw new \Exception('تم دفع هذه الغرامة مسبقاً');
             }
 
+            $finePoints = $fine->fine_points ?: $this->pointService->sypToPoints((float) $fine->fine);
+            if ($finePoints > 0) {
+                $this->pointService->debit(
+                    $fine->borrowing->member_id,
+                    $finePoints,
+                    'spend',
+                    LateFine::class,
+                    (string) $fine->id,
+                    'دفع غرامة تأخير'
+                );
+            }
+
             $fine->update([
+                'fine_points' => $finePoints,
                 'is_paid' => true,
                 'paid_at' => now(),
             ]);
@@ -46,6 +63,7 @@ class FineService
             $this->markBorrowingAsPaidIfAllFinesSettled($fine->borrowing_id);
 
             DB::commit();
+
             return $fine->fresh(['borrowing.member']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -60,7 +78,7 @@ class FineService
             ->count();
 
         if ($unpaidFines === 0) {
-            \App\Models\Borrowing::where('id', $borrowingId)->update([
+            Borrowing::where('id', $borrowingId)->update([
                 'is_paid' => true,
                 'paid_at' => now(),
             ]);

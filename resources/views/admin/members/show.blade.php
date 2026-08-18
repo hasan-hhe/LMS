@@ -13,6 +13,22 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
+                    <div class="card bg-primary-gradient text-white mb-4">
+                        <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <div class="text-white-50">رصيد النقاط</div>
+                                <h2 class="mb-0"><span id="memberPointsBalance">--</span> نقطة</h2>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" id="btnMemberTopUp" class="btn btn-light">
+                                    <i class="fas fa-ticket-alt"></i> شحن بكود
+                                </button>
+                                <button type="button" id="btnAdjustMemberPoints" class="btn btn-warning" data-role="ADMIN">
+                                    <i class="fas fa-sliders-h"></i> تعديل الرصيد
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <ul class="nav nav-tabs nav-line nav-color-secondary" id="memberTabs" role="tablist">
                         <li class="nav-item">
                             <a class="nav-link active" id="profile-tab" data-bs-toggle="tab" href="#profileTab" role="tab">البيانات الشخصية</a>
@@ -22,6 +38,9 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" id="fines-tab" data-bs-toggle="tab" href="#finesTab" role="tab">الغرامات</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="points-tab" data-bs-toggle="tab" href="#pointsTab" role="tab">سجل النقاط</a>
                         </li>
                     </ul>
                     <div class="tab-content mt-3" id="memberTabContent">
@@ -62,6 +81,23 @@
                                     <tbody id="memberFinesBody"></tbody>
                                 </table>
                                 <div id="memberFinesPagination"></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="pointsTab" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table display table-striped table-hover table-datatable">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>التغيير</th>
+                                            <th>نوع العملية</th>
+                                            <th>البيان</th>
+                                            <th>التاريخ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="memberPointsHistoryBody"></tbody>
+                                </table>
+                                <div id="memberPointsHistoryPagination"></div>
                             </div>
                         </div>
                     </div>

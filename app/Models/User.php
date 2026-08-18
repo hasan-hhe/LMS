@@ -9,7 +9,8 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
+
     protected $authPasswordName = 'password_hash';  // Laravel 11+
 
     protected $fillable = [
@@ -39,8 +40,8 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at'   => 'datetime',
-            'participe_end_date'  => 'date',
+            'email_verified_at' => 'datetime',
+            'participe_end_date' => 'date',
         ];
     }
 
@@ -51,7 +52,7 @@ class User extends Authenticatable
 
     public function fullName(): string
     {
-        return $this->first_name . ' ' . $this->last_name;
+        return $this->first_name.' '.$this->last_name;
     }
 
     public function isAdmin(): bool
@@ -89,8 +90,23 @@ class User extends Authenticatable
         return $this->hasMany(Review::class);
     }
 
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
     public function reservations()
     {
         return $this->hasMany(Reservation::class);
+    }
+
+    public function userPoints()
+    {
+        return $this->hasOne(UserPoint::class);
+    }
+
+    public function pointTransactions()
+    {
+        return $this->hasMany(PointTransaction::class);
     }
 }

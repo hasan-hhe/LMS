@@ -68,6 +68,23 @@ class ReportControllerTest extends TestCase
             ->assertJsonStructure(['data' => ['total_books', 'total_instances', 'total_members']]);
     }
 
+    public function test_points_summary_report_returns_data(): void
+    {
+        $token = $this->admin->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/v1/reports/points-summary')
+            ->assertStatus(200)
+            ->assertJsonStructure(['data' => [
+                'total_balance_all_users',
+                'total_top_ups',
+                'total_spent',
+                'total_rewards',
+                'codes_unused',
+                'codes_used',
+            ]]);
+    }
+
     public function test_reports_require_authentication(): void
     {
         $this->getJson('/api/v1/reports/stats')->assertStatus(401);

@@ -14,15 +14,17 @@ class LateFine extends Model
         'borrowing_id',
         'days_late',
         'fine',
+        'fine_points',
         'is_paid',
         'paid_at',
     ];
 
     protected $casts = [
         'days_late' => 'integer',
-        'fine'      => 'float',
-        'is_paid'   => 'boolean',
-        'paid_at'   => 'datetime',
+        'fine' => 'float',
+        'fine_points' => 'integer',
+        'is_paid' => 'boolean',
+        'paid_at' => 'datetime',
     ];
 
     public function borrowing()

@@ -25,8 +25,184 @@ tags:
     description: Member management (requires LIBRARIAN role)
   - name: Books
     description: Book catalog and inventory
+  - name: Member Self Service
+    description: Member-owned points, borrowings, fines, reservations, orders, profile, and notifications
+  - name: OPAC
+    description: Public book catalog
 
 paths:
+  /v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a member account and return a Sanctum token
+      responses:
+        '201': { description: Member registered }
+        '422': { description: Validation error }
+  /v1/auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request a password reset without revealing account existence
+      responses:
+        '200': { description: Request accepted }
+  /v1/auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset a password using an email and token
+      responses:
+        '200': { description: Password reset }
+        '422': { description: Invalid or expired token }
+  /v1/opac/books:
+    get:
+      tags: [OPAC]
+      summary: Search the public book catalog
+      responses:
+        '200': { description: Public books returned }
+  /v1/opac/books/{ISBN}:
+    get:
+      tags: [OPAC]
+      summary: Get public book details
+      parameters:
+        - { name: ISBN, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Public book returned }
+        '404': { description: Book not found }
+  /v1/member/points/balance:
+    get:
+      tags: [Member Self Service]
+      summary: Get the authenticated member point balance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Balance returned }
+  /v1/member/points/history:
+    get:
+      tags: [Member Self Service]
+      summary: Get the authenticated member point history
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Point history returned }
+  /v1/member/points/top-up:
+    post:
+      tags: [Member Self Service]
+      summary: Redeem a point top-up code
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Balance topped up }
+  /v1/member/borrowings:
+    get:
+      tags: [Member Self Service]
+      summary: List the authenticated member borrowings
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Borrowings returned }
+  /v1/member/borrowings/{id}/extend:
+    put:
+      tags: [Member Self Service]
+      summary: Extend an owned active borrowing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Borrowing extended }
+  /v1/member/fines:
+    get:
+      tags: [Member Self Service]
+      summary: List the authenticated member fines
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Fines returned }
+  /v1/member/fines/{id}/pay:
+    put:
+      tags: [Member Self Service]
+      summary: Pay an owned fine with points
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Fine paid }
+  /v1/member/reservations:
+    get:
+      tags: [Member Self Service]
+      summary: List owned reservations
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Reservations returned }
+    post:
+      tags: [Member Self Service]
+      summary: Reserve a book instance or ISBN
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Reservation created }
+  /v1/member/reservations/{id}/cancel:
+    put:
+      tags: [Member Self Service]
+      summary: Cancel an owned reservation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Reservation cancelled }
+  /v1/member/orders:
+    get:
+      tags: [Member Self Service]
+      summary: List owned orders
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Orders returned }
+    post:
+      tags: [Member Self Service]
+      summary: Create a pending order
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Order created }
+  /v1/member/orders/{id}:
+    get:
+      tags: [Member Self Service]
+      summary: Get an owned order
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Order returned }
+  /v1/member/orders/{id}/pay:
+    post:
+      tags: [Member Self Service]
+      summary: Confirm and pay a pending owned order
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Order paid }
+  /v1/member/profile:
+    put:
+      tags: [Member Self Service]
+      summary: Update the authenticated member profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Profile updated }
+  /v1/member/notifications:
+    get:
+      tags: [Member Self Service]
+      summary: List member notifications
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Notifications returned }
+  /v1/member/notifications/{id}/read:
+    post:
+      tags: [Member Self Service]
+      summary: Mark an owned notification as read
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Notification marked read }
+  /v1/member/notifications/read-all:
+    post:
+      tags: [Member Self Service]
+      summary: Mark all member notifications as read
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Notifications marked read }
+
   /v1/auth/login:
     post:
       tags: [Authentication]
@@ -570,6 +746,123 @@ paths:
                     example: Unauthorized
         '404':
           description: Book not found
+
+  /v1/member/favorites:
+    get:
+      tags: [Books]
+      summary: List the authenticated member's favorite books
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Favorites retrieved
+    post:
+      tags: [Books]
+      summary: Add a book to favorites
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isbn]
+              properties:
+                isbn:
+                  type: string
+      responses:
+        '201':
+          description: Favorite created
+        '422':
+          description: Validation error
+
+  /v1/member/favorites/{isbn}:
+    delete:
+      tags: [Books]
+      summary: Remove a book from favorites
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: isbn
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Favorite removed
+
+  /v1/books/{isbn}/reviews:
+    get:
+      tags: [Books]
+      summary: List reviews for a book
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: isbn
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Reviews retrieved
+
+  /v1/member/reviews:
+    get:
+      tags: [Books]
+      summary: List the authenticated member's reviews
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reviews retrieved
+    post:
+      tags: [Books]
+      summary: Create or update a book review
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isbn, rate]
+              properties:
+                isbn:
+                  type: string
+                rate:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Review saved
+        '422':
+          description: Validation error
+
+  /v1/member/reviews/{review}:
+    delete:
+      tags: [Books]
+      summary: Delete the authenticated member's review
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: review
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Review deleted
+        '403':
+          description: Review belongs to another member
 
 components:
   securitySchemes:

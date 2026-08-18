@@ -13,6 +13,10 @@ Route::get('/', function () {
     return redirect()->route('admin.login');
 });
 
+Route::get('/reset-password', function () {
+    return view('auth.reset-password');
+})->name('password.reset');
+
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [DashboardViewController::class, 'login'])->name('login');
 
@@ -60,8 +64,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/orders/create', [DashboardViewController::class, 'ordersCreate'])->name('orders.create');
     Route::get('/orders/{id}', [DashboardViewController::class, 'ordersShow'])->name('orders.show');
 
+    Route::get('/reviews', [DashboardViewController::class, 'reviewsIndex'])->name('reviews.index');
+
+    Route::get('/points/top-up-codes', [DashboardViewController::class, 'pointsTopUpCodes'])->name('points.top-up-codes');
+    Route::get('/points/settings', [DashboardViewController::class, 'pointsSettings'])->name('points.settings');
+
     Route::get('/reports/overdue', [DashboardViewController::class, 'reportsOverdue'])->name('reports.overdue');
     Route::get('/reports/most-borrowed', [DashboardViewController::class, 'reportsMostBorrowed'])->name('reports.most-borrowed');
     Route::get('/reports/fines-summary', [DashboardViewController::class, 'reportsFinesSummary'])->name('reports.fines-summary');
     Route::get('/reports/inventory', [DashboardViewController::class, 'reportsInventory'])->name('reports.inventory');
+    Route::get('/reports/points', [DashboardViewController::class, 'reportsPoints'])->name('reports.points');
 });

@@ -35,8 +35,9 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
-                                <label>تكلفة الاستعارة</label>
+                                <label>تكلفة الاستعارة (نقاط)</label>
                                 <input type="number" step="0.01" min="0" name="borrowing_cost" class="form-control">
+                                <small class="form-text text-muted">ستُخصم هذه التكلفة من رصيد نقاط العضو عند تسجيل الاستعارة.</small>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>

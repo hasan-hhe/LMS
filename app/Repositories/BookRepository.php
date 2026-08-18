@@ -12,25 +12,25 @@ class BookRepository implements BookRepositoryInterface
     {
         $query = Book::with(['author', 'category', 'publisher']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                     ->orWhere('ISBN', 'like', "%{$search}%")
-                    ->orWhereHas('author', fn($q) => $q->where('firstname', 'like', "%{$search}%")
+                    ->orWhereHas('author', fn ($q) => $q->where('firstname', 'like', "%{$search}%")
                         ->orWhere('lastname', 'like', "%{$search}%"));
             });
         }
 
-        if (!empty($filters['category_id'])) {
+        if (! empty($filters['category_id'])) {
             $query->where('catagory_id', $filters['category_id']);
         }
 
-        if (!empty($filters['author_id'])) {
+        if (! empty($filters['author_id'])) {
             $query->where('auther_id', $filters['author_id']);
         }
 
-        if (!empty($filters['year'])) {
+        if (! empty($filters['year'])) {
             $query->where('year_of_publishing', $filters['year']);
         }
 
@@ -39,7 +39,7 @@ class BookRepository implements BookRepositoryInterface
 
     public function findByIsbn(string $isbn): ?Book
     {
-        return Book::with(['author', 'category', 'publisher', 'instances.state'])->find($isbn);
+        return Book::with(['author', 'category', 'publisher', 'instances.state', 'digitalAsset'])->find($isbn);
     }
 
     public function create(array $data): Book
@@ -50,6 +50,7 @@ class BookRepository implements BookRepositoryInterface
     public function update(Book $book, array $data): Book
     {
         $book->update($data);
+
         return $book->fresh(['author', 'category', 'publisher']);
     }
 

@@ -6,11 +6,12 @@ use App\Models\Author;
 use App\Models\Book;
 use App\Models\BookInstance;
 use App\Models\Borrowing;
+use App\Models\Category;
 use App\Models\InstanceState;
 use App\Models\LateFine;
-use App\Models\Category;
 use App\Models\Publisher;
 use App\Models\User;
+use App\Models\UserPoint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,6 +20,7 @@ class FineControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $librarian;
+
     private LateFine $fine;
 
     protected function setUp(): void
@@ -26,16 +28,17 @@ class FineControllerTest extends TestCase
         parent::setUp();
 
         $this->librarian = User::factory()->create(['role' => 'LIBRARIAN', 'password_hash' => bcrypt('p')]);
-        $member          = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);
+        $member = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);
+        UserPoint::create(['user_id' => $member->id, 'balance' => 500]);
 
-        $state    = InstanceState::create(['state' => 'available']);
-        $author   = Author::create(['firstname' => 'م', 'lastname' => 'ن', 'nationality' => 'أ']);
+        $state = InstanceState::create(['state' => 'available']);
+        $author = Author::create(['firstname' => 'م', 'lastname' => 'ن', 'nationality' => 'أ']);
         $category = Category::create(['title' => 'عام', 'discription' => 'وصف']);
-        $pub      = Publisher::create(['name' => 'نشر', 'location' => 'مكان']);
-        $book     = Book::create([
+        $pub = Publisher::create(['name' => 'نشر', 'location' => 'مكان']);
+        $book = Book::create([
             'ISBN' => '978-fine-test', 'auther_id' => $author->id, 'catagory_id' => $category->id,
             'publisher_id' => $pub->id, 'title' => 'ك', 'discription' => 'و', 'price' => 20,
-            'amount' => 1, 'rate_avg' => 0, 'cover_url' => null, 'year_of_publishing' => '2020', 'number_edition' => '1',
+            'amount' => 1, 'rate_avg' => 0, 'cover_url' => '', 'year_of_publishing' => '2020', 'number_edition' => '1',
         ]);
         $instance = BookInstance::create(['book_ISBN' => $book->ISBN, 'state_id' => $state->id, 'condition' => 'new']);
 
@@ -48,9 +51,10 @@ class FineControllerTest extends TestCase
 
         $this->fine = LateFine::create([
             'borrowing_id' => $borrowing->id,
-            'days_late'    => 5,
-            'fine'         => 2.5,
-            'is_paid'      => false,
+            'days_late' => 5,
+            'fine' => 2.5,
+            'fine_points' => 1,
+            'is_paid' => false,
         ]);
     }
 
@@ -58,7 +62,7 @@ class FineControllerTest extends TestCase
     {
         $token = $this->librarian->createToken('test')->plainTextToken;
 
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/v1/fines')
             ->assertStatus(200)
             ->assertJsonStructure(['data', 'meta']);
@@ -68,7 +72,7 @@ class FineControllerTest extends TestCase
     {
         $token = $this->librarian->createToken('test')->plainTextToken;
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->putJson("/api/v1/fines/{$this->fine->id}/pay");
 
         $response->assertStatus(200)
@@ -82,7 +86,7 @@ class FineControllerTest extends TestCase
         $this->fine->update(['is_paid' => true, 'paid_at' => now()]);
         $token = $this->librarian->createToken('test')->plainTextToken;
 
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->putJson("/api/v1/fines/{$this->fine->id}/pay")
             ->assertStatus(422);
     }
