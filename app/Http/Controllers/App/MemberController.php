@@ -102,7 +102,7 @@ class MemberController extends Controller
         }
         $members = User::query()->where('role', 'MEMBER')->paginate(15);
         return ResponseHelper::paginated(UserResource::collection($members));
-    }
+        }
 
     #[OA\Put(
         path: '/member/update-member/{id}',
@@ -232,7 +232,7 @@ class MemberController extends Controller
         }
         try {
             $request->validate([
-                'participe_end_date' => 'required|date'
+                'participe_end_date' => 'sometimes|date'
             ]);
         } catch (Exception $e) {
             return ResponseHelper::validationError($e->getMessage());

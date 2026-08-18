@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamp('returned_at')->nullable();
             $table->date('due_date')->nullable();
             $table->double('borrowing_cast');
-            $table->boolean('is_paid');
+            $table->boolean('is_paid')->default(false);
             $table->timestamp('paid_at')->nullable();
         });
     }

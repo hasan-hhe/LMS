@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\App\Auth;
 
+use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -95,7 +96,10 @@ class AuthController extends Controller
                 'body'    => 'كلمة المرور غير صحيحة',
             ], 400);
         }
-
+        $date1 = $user->participe_end_date;
+        if($user->role == 'MEMBER')
+            if($date1->lt(now()))
+                return ResponseHelper::unauthorized('يرجى تجديد الاستراك، لأن تاريخ اشتراكك منتهي');
         $token = $user->createToken('api_token')->plainTextToken;
 
         return response()->json([

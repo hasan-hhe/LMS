@@ -55,11 +55,11 @@ class BorrowingService
         try {
             $borrowing = $this->findActiveBorrowing($borrowingId);
 
-            $borrowing->update(['returned_at' => now()]);
-
             $this->markInstanceAsAvailable($borrowing->bookInstance);
             $this->calculateAndSaveLateFine($borrowing);
-
+            
+            $borrowing->update(['returned_at' => now()]);
+            
             DB::commit();
             return $borrowing->fresh(['member', 'bookInstance.book', 'lateFine']);
         } catch (\Exception $e) {

@@ -33,6 +33,10 @@ class Borrowing extends Model
         'borrowing_cast' => 'float',
     ];
 
+    protected $attributes = [
+        'is_paid' => false
+    ];
+
     public function member()
     {
         return $this->belongsTo(User::class, 'member_id');
