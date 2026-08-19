@@ -27,7 +27,12 @@ class DigitalAssetController extends Controller
     public function upsert(UpsertDigitalAssetRequest $request, string $isbn): JsonResponse
     {
         try {
-            $asset = $this->digitalAssets->upsert($isbn, $request->validated());
+            $asset = $this->digitalAssets->upsert(
+                $isbn,
+                $request->safe()->except(['pdf', 'audio']),
+                $request->file('pdf'),
+                $request->file('audio'),
+            );
 
             return ResponseHelper::success(new DigitalAssetResource($asset), 'تم حفظ المحتوى الرقمي');
         } catch (\Exception $e) {

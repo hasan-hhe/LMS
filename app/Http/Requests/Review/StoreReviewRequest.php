@@ -23,6 +23,13 @@ class StoreReviewRequest extends FormRequest
         ];
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('rating') && ! $this->filled('rate')) {
+            $this->merge(['rate' => $this->input('rating')]);
+        }
+    }
+
     public function messages(): array
     {
         return [

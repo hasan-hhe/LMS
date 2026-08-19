@@ -116,6 +116,8 @@ class BookService
                 throw new \Exception('الكتاب غير موجود');
             }
 
+            $book->loadMissing('digitalAsset');
+            $book->digitalAsset?->delete();
             $this->deleteOldCover($book->cover_url);
             $this->bookRepository->delete($book);
 

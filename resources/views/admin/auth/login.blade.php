@@ -2,7 +2,7 @@
 <html lang="ar">
 
 <head>
-    <title>تسجيل الدخول — نظام إدارة المكتبة</title>
+    <title>تسجيل الدخول — LibraLMS</title>
     @include('admin.layouts.head')
 </head>
 
@@ -17,8 +17,8 @@
                             <div class="col">
                                 <div class="p-5">
                                     <div class="text-center mb-4">
-                                        <h1 class="h4 mb-2">نظام إدارة المكتبة</h1>
-                                        <p class="text-muted">تسجيل الدخول للوحة التحكم</p>
+                                        <img src="{{ asset('assets/img/libralms-logo.png') }}" alt="LibraLMS" class="libralms-login-logo mb-3">
+                                        <p class="text-muted mb-0">تسجيل الدخول للوحة التحكم</p>
                                     </div>
                                     <form id="loginForm">
                                         <div class="form-group mb-3">

@@ -385,8 +385,8 @@
             return apiClient.get('/books/' + encodeURIComponent(isbn) + '/digital').then(unwrap);
         },
 
-        upsertDigitalAsset(isbn, data) {
-            return apiClient.put('/books/' + encodeURIComponent(isbn) + '/digital', data).then(unwrap);
+        upsertDigitalAsset(isbn, formData) {
+            return apiClient.post('/books/' + encodeURIComponent(isbn) + '/digital', formData).then(unwrap);
         },
 
         deleteDigitalAsset(isbn) {

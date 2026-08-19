@@ -80,15 +80,25 @@
                         <hr>
                         <h5 class="mb-3">المحتوى الرقمي</h5>
                         <div class="row" id="digitalAssetForm">
-                            <div class="col-md-5 form-group mb-3">
-                                <label>رابط PDF</label>
-                                <input type="url" id="digital_pdf_url" class="form-control" placeholder="https://...">
+                            <div class="col-md-6 form-group mb-3">
+                                <label>ملف PDF</label>
+                                <div id="digital_pdf_current" class="small text-muted mb-1">لا يوجد ملف PDF</div>
+                                <input type="file" id="digital_pdf" class="form-control" accept="application/pdf,.pdf">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" class="form-check-input" id="digital_remove_pdf">
+                                    <label class="form-check-label" for="digital_remove_pdf">حذف ملف PDF الحالي</label>
+                                </div>
                             </div>
-                            <div class="col-md-5 form-group mb-3">
-                                <label>رابط الصوت</label>
-                                <input type="url" id="digital_audio_url" class="form-control" placeholder="https://...">
+                            <div class="col-md-6 form-group mb-3">
+                                <label>ملف صوتي</label>
+                                <div id="digital_audio_current" class="small text-muted mb-1">لا يوجد ملف صوتي</div>
+                                <input type="file" id="digital_audio" class="form-control" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/mp4,.mp3,.wav,.ogg,.m4a,.aac">
+                                <div class="form-check mt-2">
+                                    <input type="checkbox" class="form-check-input" id="digital_remove_audio">
+                                    <label class="form-check-label" for="digital_remove_audio">حذف الملف الصوتي الحالي</label>
+                                </div>
                             </div>
-                            <div class="col-md-2 form-group mb-3 d-flex align-items-end">
+                            <div class="col-md-12 form-group mb-3">
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" id="digital_is_free">
                                     <label class="form-check-label" for="digital_is_free">مجاني</label>

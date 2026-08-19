@@ -1,8 +1,9 @@
 <div class="sidebar" data-background-color="dark">
     <div class="sidebar-logo">
         <div class="logo-header" data-background-color="dark">
-            <a href="{{ route('admin.dashboard') }}" class="logo d-none d-lg-flex">
-                <span class="navbar-brand text-white fw-bold" style="font-size: 1.1rem;">نظام إدارة المكتبة</span>
+            <a href="{{ route('admin.dashboard') }}" class="logo d-none d-lg-flex align-items-center gap-2">
+                <img src="{{ asset('assets/img/libralms-mark.png') }}" alt="LibraLMS" class="navbar-brand libralms-mark">
+                <span class="navbar-brand text-white fw-bold libralms-wordmark">LibraLMS</span>
             </a>
             <div class="nav-toggle">
                 <button class="btn btn-toggle toggle-sidebar">

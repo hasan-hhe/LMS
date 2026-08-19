@@ -6,11 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\MemberBorrowingResource;
 use App\Http\Resources\UserResource;
 use App\Models\Borrowing;
+use App\Models\LateFine;
+use App\Services\PointService;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class MemberDashboardController extends Controller
 {
+    public function __construct(private PointService $pointService) {}
+
     #[OA\Get(
         path: '/member/dashboard',
         tags: ['Dashboard'],
@@ -27,10 +31,10 @@ class MemberDashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!hash_equals($user->role, 'MEMBER')) {
+        if (! hash_equals($user->role, 'MEMBER')) {
             return response()->json([
                 'message' => 'error',
-                'body'    => 'غير مصرح لك بالوصول',
+                'body' => 'غير مصرح لك بالوصول',
             ], 403);
         }
 
@@ -42,13 +46,18 @@ class MemberDashboardController extends Controller
             ->get();
 
         $overdueCount = $activeBorrowings->filter(fn (Borrowing $b) => $b->isOverdue())->count();
+        $unpaidFinePoints = (int) LateFine::whereHas('borrowing', fn ($query) => $query->where('member_id', $user->id))
+            ->where('is_paid', false)
+            ->sum('fine_points');
 
         return response()->json([
-            'message'            => 'success',
-            'body'               => 'تم جلب البيانات بنجاح',
-            'user'               => new UserResource($user),
-            'borrowed_count'     => $activeBorrowings->count(),
-            'overdue_count'      => $overdueCount,
+            'message' => 'success',
+            'body' => 'تم جلب البيانات بنجاح',
+            'user' => new UserResource($user),
+            'borrowed_count' => $activeBorrowings->count(),
+            'overdue_count' => $overdueCount,
+            'points' => $this->pointService->getBalance($user->id),
+            'fines_points' => $unpaidFinePoints,
             'current_borrowings' => MemberBorrowingResource::collection($activeBorrowings),
         ]);
     }

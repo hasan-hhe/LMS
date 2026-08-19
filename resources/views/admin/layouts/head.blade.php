@@ -1,10 +1,10 @@
 <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>@yield('title', 'نظام إدارة المكتبة')</title>
+    <title>@yield('title', 'LibraLMS')</title>
     <meta content="width=device-width, initial-scale=1.0, shrink-to-fit=no" name="viewport">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <link rel="icon" href="{{ asset('assets/img/examples/logo.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('assets/img/libralms-mark.png') }}" type="image/png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,6 +29,21 @@
         .sidebar[data-background-color="dark"],
         .logo-header[data-background-color="dark"] {
             background: var(--lms-primary) !important;
+        }
+
+        .logo-header .logo .navbar-brand.libralms-mark,
+        .logo-header .logo img.libralms-mark {
+            margin: 0 !important;
+            height: 42px;
+            width: auto;
+            padding: 0;
+        }
+
+        .logo-header .logo .navbar-brand.libralms-wordmark {
+            margin: 0 !important;
+            padding: 0;
+            font-size: 1.15rem;
+            letter-spacing: 0.02em;
         }
 
         .btn-primary {
@@ -81,6 +96,14 @@
         .bg-gradient-primary {
             background: linear-gradient(135deg, var(--lms-primary) 0%, var(--lms-primary-dark) 100%);
             min-height: 100vh;
+        }
+
+        .libralms-login-logo {
+            display: block;
+            width: 180px;
+            max-width: 70%;
+            height: auto;
+            margin-inline: auto;
         }
     </style>
 

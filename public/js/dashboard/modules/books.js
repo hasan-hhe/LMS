@@ -87,13 +87,40 @@
     }
 
     function fillDigitalForm(digital) {
-        const pdf = document.getElementById('digital_pdf_url');
-        const audio = document.getElementById('digital_audio_url');
         const isFree = document.getElementById('digital_is_free');
-        if (!pdf || !audio || !isFree) return;
-        pdf.value = digital?.pdf_url || '';
-        audio.value = digital?.audio_url || '';
+        const removePdf = document.getElementById('digital_remove_pdf');
+        const removeAudio = document.getElementById('digital_remove_audio');
+        const pdfInput = document.getElementById('digital_pdf');
+        const audioInput = document.getElementById('digital_audio');
+        if (!isFree) return;
         isFree.checked = !!digital?.is_free;
+        if (removePdf) removePdf.checked = false;
+        if (removeAudio) removeAudio.checked = false;
+        if (pdfInput) pdfInput.value = '';
+        if (audioInput) audioInput.value = '';
+        setDigitalCurrent('digital_pdf_current', digital?.has_pdf, digital?.pdf_url, 'PDF', digital?.pdf_size);
+        setDigitalCurrent('digital_audio_current', digital?.has_audio, digital?.audio_url, 'صوتي', digital?.audio_size);
+    }
+
+    function setDigitalCurrent(elementId, hasFile, url, label, size) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        if (!hasFile) {
+            el.textContent = 'لا يوجد ملف ' + label;
+            return;
+        }
+        const sizeText = size ? ' (' + formatDigitalSize(size) + ')' : '';
+        if (url) {
+            el.innerHTML = 'ملف ' + label + ' مرفوع' + sizeText + ' — <a href="' + url + '" target="_blank" rel="noopener">فتح / تحميل</a>';
+            return;
+        }
+        el.textContent = 'ملف ' + label + ' مرفوع' + sizeText;
+    }
+
+    function formatDigitalSize(bytes) {
+        if (!bytes || bytes < 1024) return (bytes || 0) + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
     function initDigitalAssetForm() {
@@ -101,11 +128,19 @@
         if (!isbn || !document.getElementById('digitalAssetForm')) return;
 
         $('#btnSaveDigital').on('click', function () {
-            LmsApi.upsertDigitalAsset(isbn, {
-                pdf_url: document.getElementById('digital_pdf_url').value || null,
-                audio_url: document.getElementById('digital_audio_url').value || null,
-                is_free: document.getElementById('digital_is_free').checked,
-            }).then(function (res) {
+            const formData = new FormData();
+            const pdf = document.getElementById('digital_pdf')?.files?.[0];
+            const audio = document.getElementById('digital_audio')?.files?.[0];
+            if (pdf) formData.append('pdf', pdf);
+            if (audio) formData.append('audio', audio);
+            formData.append('is_free', document.getElementById('digital_is_free').checked ? '1' : '0');
+            if (document.getElementById('digital_remove_pdf')?.checked) {
+                formData.append('remove_pdf', '1');
+            }
+            if (document.getElementById('digital_remove_audio')?.checked) {
+                formData.append('remove_audio', '1');
+            }
+            LmsApi.upsertDigitalAsset(isbn, formData).then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 fillDigitalForm(res.data);
             }).catch(LmsHelpers.handleApiError);
@@ -164,8 +199,16 @@
                 '<p><strong>الوصف:</strong> ' + (book.description || '') + '</p>' +
                 '<hr><h5>المحتوى الرقمي</h5>' +
                 (book.digital
-                    ? '<p><strong>PDF:</strong> ' + (book.digital.pdf_url || '-') + '</p>' +
-                      '<p><strong>صوت:</strong> ' + (book.digital.audio_url || '-') + '</p>' +
+                    ? '<p><strong>PDF:</strong> ' + (book.digital.has_pdf
+                        ? (book.digital.pdf_url
+                            ? '<a href="' + book.digital.pdf_url + '" target="_blank" rel="noopener">تحميل</a>'
+                            : 'موجود')
+                        : '-') + '</p>' +
+                      '<p><strong>صوت:</strong> ' + (book.digital.has_audio
+                        ? (book.digital.audio_url
+                            ? '<a href="' + book.digital.audio_url + '" target="_blank" rel="noopener">استماع / تحميل</a>'
+                            : 'موجود')
+                        : '-') + '</p>' +
                       '<p><strong>مجاني:</strong> ' + (book.digital.is_free ? 'نعم' : 'لا') + '</p>'
                     : '<p class="text-muted">لا يوجد محتوى رقمي</p>') +
                 '</div></div>'

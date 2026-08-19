@@ -110,6 +110,57 @@ class MemberAppApiTest extends TestCase
         $this->postJson('/api/v1/auth/forgot-password', ['login' => 'missing@example.com'])->assertOk();
     }
 
+    public function test_member_dashboard_includes_points_and_unpaid_fines(): void
+    {
+        /** @var User $member */
+        $member = User::factory()->create(['role' => 'MEMBER']);
+        UserPoint::create(['user_id' => $member->id, 'balance' => 240]);
+        $librarian = User::factory()->create(['role' => 'LIBRARIAN']);
+        $instanceId = $this->createBookInstance();
+        $borrowing = Borrowing::create([
+            'member_id' => $member->id, 'librarian_id' => $librarian->id, 'book_instance_id' => $instanceId,
+            'start_date' => now()->subDays(10), 'end_date' => now()->subDays(3), 'due_date' => now()->subDays(3),
+            'borrowing_cast' => 0, 'is_paid' => false,
+        ]);
+        LateFine::create(['borrowing_id' => $borrowing->id, 'days_late' => 3, 'fine' => 500, 'fine_points' => 20]);
+
+        $this->actingAs($member)
+            ->getJson('/api/member/dashboard')
+            ->assertOk()
+            ->assertJsonPath('points', 240)
+            ->assertJsonPath('fines_points', 20)
+            ->assertJsonPath('borrowed_count', 1);
+    }
+
+    public function test_opac_accepts_flutter_search_aliases_and_returns_list_items(): void
+    {
+        $this->createBookInstance();
+
+        $this->getJson('/api/v1/opac/books?search=Book&available_only=0')
+            ->assertOk()
+            ->assertJsonPath('data.items.0.title', 'Book')
+            ->assertJsonPath('data.items.0.available_copies', 0)
+            ->assertJsonPath('data.items.0.rating', 0);
+    }
+
+    public function test_member_borrowings_accept_current_status_alias(): void
+    {
+        /** @var User $member */
+        $member = User::factory()->create(['role' => 'MEMBER']);
+        $librarian = User::factory()->create(['role' => 'LIBRARIAN']);
+        $instanceId = $this->createBookInstance();
+        Borrowing::create([
+            'member_id' => $member->id, 'librarian_id' => $librarian->id, 'book_instance_id' => $instanceId,
+            'start_date' => now(), 'end_date' => now()->addDays(7), 'due_date' => now()->addDays(7),
+            'borrowing_cast' => 0, 'is_paid' => false,
+        ]);
+
+        $this->actingAs($member)
+            ->getJson('/api/v1/member/borrowings?status=current')
+            ->assertOk()
+            ->assertJsonPath('data.meta.total', 1);
+    }
+
     private function createBookInstance(): int
     {
         $authorId = DB::table('authers')->insertGetId(['firstname' => 'A', 'lastname' => 'B', 'nationality' => 'SY']);

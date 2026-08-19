@@ -2,7 +2,7 @@
     <div class="main-header-logo">
         <div class="logo-header" data-background-color="dark">
             <a href="{{ route('admin.dashboard') }}" class="logo">
-                <span class="navbar-brand text-white fw-bold">LMS</span>
+                <img src="{{ asset('assets/img/libralms-mark.png') }}" alt="LibraLMS" class="navbar-brand libralms-mark">
             </a>
             <div class="nav-toggle">
                 <button class="btn btn-toggle toggle-sidebar">

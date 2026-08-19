@@ -5,9 +5,13 @@ namespace Tests\Feature\Dashboard;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\DigitalAsset;
 use App\Models\Publisher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class ReviewsFavoritesDigitalAssetsTest extends TestCase
@@ -99,34 +103,46 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
 
     public function test_staff_can_upsert_digital_asset(): void
     {
-        $this->actingAs($this->admin)
-            ->postJson('/api/v1/books/'.$this->book->ISBN.'/digital', [
-                'pdf_url' => 'https://example.com/book.pdf',
-                'is_free' => false,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.pdf_url', 'https://example.com/book.pdf');
+        Storage::fake('local');
+        $pdf = UploadedFile::fake()->create('book.pdf', 200, 'application/pdf');
+        $audio = UploadedFile::fake()->create('book.mp3', 300, 'audio/mpeg');
 
         $this->actingAs($this->admin)
-            ->putJson('/api/v1/books/'.$this->book->ISBN.'/digital', [
-                'audio_url' => 'https://example.com/book.mp3',
-                'is_free' => true,
-            ])
+            ->post('/api/v1/books/'.$this->book->ISBN.'/digital', [
+                'pdf' => $pdf,
+                'is_free' => 0,
+            ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.is_free', true);
+            ->assertJsonPath('data.has_pdf', true)
+            ->assertJsonPath('data.has_audio', false)
+            ->assertJsonPath('data.locked', false);
 
-        $this->assertDatabaseHas('digital_assets', [
-            'book_ISBN' => $this->book->ISBN,
-            'pdf_url' => 'https://example.com/book.pdf',
-            'audio_url' => 'https://example.com/book.mp3',
-            'is_free' => true,
-        ]);
+        $asset = DigitalAsset::query()->where('book_ISBN', $this->book->ISBN)->first();
+        $this->assertNotNull($asset);
+        Storage::disk('local')->assertExists($asset->pdf_url);
+        $this->assertStringContainsString('/api/v1/books/'.$this->book->ISBN.'/digital/pdf', (string) $this->actingAs($this->admin)->getJson('/api/v1/books/'.$this->book->ISBN.'/digital')->json('data.pdf_url'));
+
+        $this->actingAs($this->admin)
+            ->post('/api/v1/books/'.$this->book->ISBN.'/digital', [
+                'audio' => $audio,
+                'is_free' => 1,
+            ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.is_free', true)
+            ->assertJsonPath('data.has_audio', true);
+
+        $asset->refresh();
+        Storage::disk('local')->assertExists($asset->pdf_url);
+        Storage::disk('local')->assertExists($asset->audio_url);
+        $this->assertTrue($asset->is_free);
     }
 
     public function test_member_only_receives_urls_for_accessible_digital_asset(): void
     {
+        Storage::fake('local');
+        $path = UploadedFile::fake()->create('locked.pdf', 120, 'application/pdf')->store('digital/pdfs', 'local');
         $asset = $this->book->digitalAsset()->create([
-            'pdf_url' => 'https://example.com/locked.pdf',
+            'pdf_url' => $path,
             'is_free' => false,
         ]);
 
@@ -134,30 +150,41 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
             ->getJson('/api/books/'.$this->book->ISBN)
             ->assertOk()
             ->assertJsonPath('book.digital.locked', true)
+            ->assertJsonPath('book.digital.has_pdf', true)
             ->assertJsonPath('book.digital.pdf_url', null);
 
         $asset->update(['is_free' => true]);
 
-        $this->actingAs($this->member)
+        $response = $this->actingAs($this->member)
             ->getJson('/api/books/'.$this->book->ISBN)
             ->assertOk()
             ->assertJsonPath('book.digital.locked', false)
-            ->assertJsonPath('book.digital.pdf_url', 'https://example.com/locked.pdf');
+            ->assertJsonPath('book.digital.has_pdf', true);
+
+        $pdfUrl = $response->json('book.digital.pdf_url');
+        $this->assertIsString($pdfUrl);
+        $this->assertStringContainsString('/api/v1/books/'.$this->book->ISBN.'/digital/pdf', $pdfUrl);
     }
 
     public function test_staff_can_show_and_delete_digital_asset(): void
     {
+        Storage::fake('local');
+        $pdf = UploadedFile::fake()->create('book.pdf', 200, 'application/pdf');
+
         $this->actingAs($this->admin)
-            ->postJson('/api/v1/books/'.$this->book->ISBN.'/digital', [
-                'pdf_url' => 'https://example.com/book.pdf',
-                'is_free' => false,
-            ])
+            ->post('/api/v1/books/'.$this->book->ISBN.'/digital', [
+                'pdf' => $pdf,
+                'is_free' => 0,
+            ], ['Accept' => 'application/json'])
             ->assertOk();
+
+        $path = DigitalAsset::query()->where('book_ISBN', $this->book->ISBN)->value('pdf_url');
+        Storage::disk('local')->assertExists($path);
 
         $this->actingAs($this->admin)
             ->getJson('/api/v1/books/'.$this->book->ISBN.'/digital')
             ->assertOk()
-            ->assertJsonPath('data.pdf_url', 'https://example.com/book.pdf');
+            ->assertJsonPath('data.has_pdf', true);
 
         $this->actingAs($this->admin)
             ->deleteJson('/api/v1/books/'.$this->book->ISBN.'/digital')
@@ -166,6 +193,38 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
         $this->assertDatabaseMissing('digital_assets', [
             'book_ISBN' => $this->book->ISBN,
         ]);
+        Storage::disk('local')->assertMissing($path);
+    }
+
+    public function test_signed_digital_file_can_be_downloaded(): void
+    {
+        Storage::fake('local');
+        $path = UploadedFile::fake()->create('book.pdf', 120, 'application/pdf')->store('digital/pdfs', 'local');
+        $this->book->digitalAsset()->create([
+            'pdf_url' => $path,
+            'is_free' => true,
+        ]);
+
+        $this->get('/api/v1/books/'.$this->book->ISBN.'/digital/pdf')
+            ->assertForbidden();
+
+        $url = URL::temporarySignedRoute('digital.file', now()->addHour(), [
+            'isbn' => $this->book->ISBN,
+            'type' => 'pdf',
+        ]);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_creating_digital_asset_without_file_is_rejected(): void
+    {
+        $this->actingAs($this->admin)
+            ->postJson('/api/v1/books/'.$this->book->ISBN.'/digital', [
+                'is_free' => true,
+            ])
+            ->assertStatus(422);
     }
 
     public function test_staff_can_list_and_delete_reviews(): void

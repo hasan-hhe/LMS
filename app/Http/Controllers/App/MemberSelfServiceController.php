@@ -72,13 +72,20 @@ class MemberSelfServiceController extends Controller
     {
         $query = Borrowing::with(['bookInstance.book', 'lateFine', 'editions'])
             ->where('member_id', $request->user()->id);
-        if ($request->input('status') === 'active') {
+        $status = $request->input('status');
+        if (in_array($status, ['active', 'current'], true)) {
             $query->whereNull('returned_at');
-        } elseif ($request->input('status') === 'returned') {
+        } elseif (in_array($status, ['returned', 'completed'], true)) {
             $query->whereNotNull('returned_at');
         }
 
-        return ResponseHelper::success($query->orderByDesc('id')->paginate(15), 'تم جلب الاستعارات بنجاح');
+        $borrowings = $query->orderByDesc('id')->paginate(15);
+
+        return ResponseHelper::success([
+            'items' => $borrowings->items(),
+            'data' => $borrowings->items(),
+            'meta' => $this->paginationMeta($borrowings),
+        ], 'تم جلب الاستعارات بنجاح');
     }
 
     public function extend(ExtendBorrowingRequest $request, int $id)
@@ -124,10 +131,16 @@ class MemberSelfServiceController extends Controller
 
     public function reservations(Request $request)
     {
-        return ResponseHelper::success(
-            Reservation::with(['bookInstance.book', 'state'])->where('user_id', $request->user()->id)->orderByDesc('id')->paginate(15),
-            'تم جلب الحجوزات بنجاح'
-        );
+        $reservations = Reservation::with(['bookInstance.book', 'state'])
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('id')
+            ->paginate(15);
+
+        return ResponseHelper::success([
+            'items' => $reservations->items(),
+            'data' => $reservations->items(),
+            'meta' => $this->paginationMeta($reservations),
+        ], 'تم جلب الحجوزات بنجاح');
     }
 
     public function createReservation(Request $request)
