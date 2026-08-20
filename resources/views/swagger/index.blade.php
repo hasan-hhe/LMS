@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS App API — Swagger</title>
+    <title>LMS API — Swagger</title>
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
     <style>
         html { box-sizing: border-box; overflow-y: scroll; }
         *, *:before, *:after { box-sizing: inherit; }
         body { margin: 0; background: #fafafa; }
-        .swagger-ui .topbar { display: none; }
+        .swagger-ui .topbar { background: #1b1b1b; }
+        .swagger-ui .topbar-wrapper img { display: none; }
+        .swagger-ui .topbar .download-url-wrapper { margin: 0; }
     </style>
 </head>
 <body>
@@ -20,7 +22,11 @@
     <script>
         window.onload = function () {
             SwaggerUIBundle({
-                url: "{{ url('/api/documentation/openapi.yaml') }}",
+                urls: [
+                    { url: "{{ url('/api/documentation/dashboard.yaml') }}", name: "Dashboard API" },
+                    { url: "{{ url('/api/documentation/openapi.yaml') }}", name: "App API" }
+                ],
+                "urls.primaryName": "Dashboard API",
                 dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [

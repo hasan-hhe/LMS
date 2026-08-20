@@ -118,4 +118,22 @@ class ReservationControllerTest extends TestCase
             ->assertStatus(200)
             ->assertJsonStructure(['data', 'meta']);
     }
+
+    public function test_index_filters_reservations_by_state(): void
+    {
+        Reservation::create([
+            'user_id'          => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+            'state_id'         => $this->pendingState->id,
+            'cause'            => '',
+            'reserved_at'      => now(),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/v1/reservations?state=pending')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.user.id', $this->member->id);
+    }
 }

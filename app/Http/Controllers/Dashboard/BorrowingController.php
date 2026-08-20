@@ -22,7 +22,7 @@ class BorrowingController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters    = $request->only(['member_id', 'is_returned']);
+            $filters    = $request->only(['member_id', 'is_returned', 'book_instance_id']);
             $borrowings = $this->borrowingRepository->getAllPaginated($filters);
 
             return ResponseHelper::paginated(

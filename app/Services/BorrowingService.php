@@ -7,6 +7,8 @@ use App\Models\Borrowing;
 use App\Models\BorrowingEdition;
 use App\Models\InstanceState;
 use App\Models\LateFine;
+use App\Models\Reservation;
+use App\Models\ReservationState;
 use App\Models\User;
 use App\Repositories\Interfaces\BorrowingRepositoryInterface;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,7 @@ class BorrowingService
         DB::beginTransaction();
         try {
             $member = $this->findAndValidateMember($data['member_id']);
-            $instance = $this->findAndValidateInstance($data['book_instance_id']);
+            $instance = $this->findAndValidateInstance($data['book_instance_id'], $member->id);
 
             $this->validateMemberBorrowingLimit($member->id);
             $this->validateMemberHasNoPendingFines($member->id);
@@ -51,6 +53,7 @@ class BorrowingService
             }
 
             $this->markInstanceAsBorrowed($instance);
+            $this->fulfillMemberHold($member->id, $instance->id);
 
             DB::commit();
 
@@ -67,7 +70,7 @@ class BorrowingService
         try {
             $borrowing = $this->findActiveBorrowing($borrowingId);
 
-            $this->markInstanceAsAvailable($borrowing->bookInstance);
+            $this->releaseInstanceAfterReturn($borrowing->bookInstance);
             $this->calculateAndSaveLateFine($borrowing);
             
             $borrowing->update(['returned_at' => now()]);
@@ -127,17 +130,23 @@ class BorrowingService
         return $member;
     }
 
-    private function findAndValidateInstance(int $instanceId): BookInstance
+    private function findAndValidateInstance(int $instanceId, int $memberId): BookInstance
     {
         $instance = BookInstance::with('state')->find($instanceId);
         if (! $instance) {
             throw new \Exception('نسخة الكتاب غير موجودة');
         }
-        if (! $instance->isAvailable()) {
-            throw new \Exception('نسخة الكتاب غير متاحة للاستعارة حالياً');
+
+        $state = $instance->state?->state;
+        if ($state === 'available') {
+            return $instance;
         }
 
-        return $instance;
+        if ($state === 'reserved' && $this->memberHoldsReservation($memberId, $instanceId)) {
+            return $instance;
+        }
+
+        throw new \Exception('نسخة الكتاب غير متاحة للاستعارة حالياً');
     }
 
     private function validateMemberBorrowingLimit(int $memberId): void
@@ -161,17 +170,47 @@ class BorrowingService
 
     private function markInstanceAsBorrowed(BookInstance $instance): void
     {
-        $borrowedState = InstanceState::where('state', 'borrowed')->first();
-        if ($borrowedState) {
-            $instance->update(['state_id' => $borrowedState->id]);
-        }
+        $this->setInstanceState($instance, 'borrowed');
     }
 
-    private function markInstanceAsAvailable(BookInstance $instance): void
+    private function releaseInstanceAfterReturn(BookInstance $instance): void
     {
-        $availableState = InstanceState::where('state', 'available')->first();
-        if ($availableState) {
-            $instance->update(['state_id' => $availableState->id]);
+        $held = Reservation::where('book_instance_id', $instance->id)
+            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
+            ->exists();
+
+        $this->setInstanceState($instance, $held ? 'reserved' : 'available');
+    }
+
+    private function memberHoldsReservation(int $memberId, int $instanceId): bool
+    {
+        return Reservation::where('user_id', $memberId)
+            ->where('book_instance_id', $instanceId)
+            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
+            ->exists();
+    }
+
+    private function fulfillMemberHold(int $memberId, int $instanceId): void
+    {
+        $fulfilledState = ReservationState::where('state', 'fulfilled')->first();
+        if (! $fulfilledState) {
+            return;
+        }
+
+        Reservation::where('user_id', $memberId)
+            ->where('book_instance_id', $instanceId)
+            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
+            ->update([
+                'state_id' => $fulfilledState->id,
+                'notified_at' => now(),
+            ]);
+    }
+
+    private function setInstanceState(BookInstance $instance, string $stateName): void
+    {
+        $state = InstanceState::where('state', $stateName)->first();
+        if ($state) {
+            $instance->update(['state_id' => $state->id]);
         }
     }
 

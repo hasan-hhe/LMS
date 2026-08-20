@@ -38,9 +38,11 @@ class BorrowingResource extends JsonResource
                 ] : null,
             ]),
             'late_fine'      => $this->whenLoaded('lateFine', fn() => $this->lateFine ? [
-                'days_late' => $this->lateFine->days_late,
-                'fine'      => $this->lateFine->fine,
-                'is_paid'   => $this->lateFine->is_paid,
+                'id'          => $this->lateFine->id,
+                'days_late'   => $this->lateFine->days_late,
+                'fine'        => $this->lateFine->fine,
+                'fine_points' => $this->lateFine->fine_points,
+                'is_paid'     => $this->lateFine->is_paid,
             ] : null),
         ];
     }

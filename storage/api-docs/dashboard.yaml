@@ -1,0 +1,2767 @@
+openapi: 3.0.3
+info:
+  title: LMS Dashboard API
+  description: |
+    Canonical Dashboard API for the Library Management System (admin / librarian).
+
+    **Authentication:** Laravel Sanctum Bearer token.
+    Obtain a token via `POST /api/v1/admin/auth/login`.
+
+    **Roles:** `ADMIN` and `LIBRARIAN` on most routes. Librarian CRUD and point settings/adjust require `ADMIN`.
+
+    **Response envelope:** `{ message: success|error, body, data?, errors?, meta? }`.
+    `body` messages are in Arabic.
+  version: 1.0.0
+  contact:
+    name: LMS Backend
+
+servers:
+  - url: /api
+    description: API server
+
+tags:
+  - name: Auth
+    description: Admin/librarian login, register, logout, and current user
+  - name: Books
+    description: Book catalog (ADMIN, LIBRARIAN)
+  - name: Book Instances
+    description: Physical copies (ADMIN, LIBRARIAN)
+  - name: Authors
+    description: Authors catalog (ADMIN, LIBRARIAN)
+  - name: Categories
+    description: Categories catalog (ADMIN, LIBRARIAN)
+  - name: Publishers
+    description: Publishers catalog (ADMIN, LIBRARIAN)
+  - name: Digital Assets
+    description: PDF / audio files attached to a book
+  - name: Favorites
+    description: Member favorites (staff lookup)
+  - name: Reviews
+    description: Book reviews (staff)
+  - name: Members
+    description: Member accounts (ADMIN, LIBRARIAN)
+  - name: Librarians
+    description: Librarian accounts (ADMIN only)
+  - name: Borrowings
+    description: Checkout, return, and extend
+  - name: Fines
+    description: Late fines
+  - name: Reservations
+    description: Hold / reserve copies
+  - name: Orders
+    description: Book purchase orders
+  - name: Points
+    description: Point balances, history, settings, and adjustments
+  - name: Top-Up Codes
+    description: Generate and redeem point codes
+  - name: Reports
+    description: Operational reports and CSV exports
+
+paths:
+  /v1/admin/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a member account
+      description: Public. Creates a MEMBER account and returns a Sanctum token.
+      operationId: dashboardAuthRegister
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /v1/admin/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      description: Authenticate with email and password. Returns a Sanctum token.
+      operationId: dashboardAuthLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+            example:
+              email: admin@example.com
+              password: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/admin/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      description: Revoke tokens for the authenticated user.
+      operationId: dashboardAuthLogout
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/admin/auth/me:
+    post:
+      tags: [Auth]
+      summary: Current user
+      operationId: dashboardAuthMe
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/books:
+    get:
+      tags: [Books]
+      summary: List books
+      description: Paginated catalog. **Requires** ADMIN or LIBRARIAN.
+      operationId: dashboardBooksIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: category_id, in: query, schema: { type: integer } }
+        - { name: author_id, in: query, schema: { type: integer } }
+        - { name: year, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Books retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBooks'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Books]
+      summary: Create a book
+      operationId: dashboardBooksStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreBookRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBookRequest'
+      responses:
+        '201':
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/books/{isbn}:
+    get:
+      tags: [Books]
+      summary: Get a book
+      operationId: dashboardBooksShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      responses:
+        '200':
+          description: Book found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Books]
+      summary: Update a book
+      operationId: dashboardBooksUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+      responses:
+        '200':
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Books]
+      summary: Partially update a book
+      operationId: dashboardBooksPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+      responses:
+        '200':
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Books]
+      summary: Delete a book
+      operationId: dashboardBooksDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/book-instances:
+    get:
+      tags: [Book Instances]
+      summary: List book copies
+      operationId: dashboardBookInstancesIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: book_isbn, in: query, schema: { type: string } }
+        - { name: state_id, in: query, schema: { type: integer } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Copies retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBookInstances'
+    post:
+      tags: [Book Instances]
+      summary: Create a copy
+      operationId: dashboardBookInstancesStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBookInstanceRequest'
+      responses:
+        '201':
+          description: Copy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookInstanceEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/book-instances/{book_instance}:
+    get:
+      tags: [Book Instances]
+      summary: Get a copy
+      operationId: dashboardBookInstancesShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BookInstanceId'
+      responses:
+        '200':
+          description: Copy found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookInstanceEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Book Instances]
+      summary: Update a copy
+      operationId: dashboardBookInstancesUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BookInstanceId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookInstanceRequest'
+      responses:
+        '200':
+          description: Copy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookInstanceEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Book Instances]
+      summary: Partially update a copy
+      operationId: dashboardBookInstancesPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BookInstanceId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookInstanceRequest'
+      responses:
+        '200':
+          description: Copy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookInstanceEnvelope'
+    delete:
+      tags: [Book Instances]
+      summary: Delete a copy
+      operationId: dashboardBookInstancesDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BookInstanceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/authors:
+    get:
+      tags: [Authors]
+      summary: List authors
+      operationId: dashboardAuthorsIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Authors retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuthors'
+    post:
+      tags: [Authors]
+      summary: Create an author
+      operationId: dashboardAuthorsStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAuthorRequest'
+      responses:
+        '201':
+          description: Author created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/authors/{author}:
+    get:
+      tags: [Authors]
+      summary: Get an author
+      operationId: dashboardAuthorsShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/AuthorId'
+      responses:
+        '200':
+          description: Author found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Authors]
+      summary: Update an author
+      description: Reuses store validation — `firstname`, `lastname`, and `nationality` are required.
+      operationId: dashboardAuthorsUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/AuthorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAuthorRequest'
+      responses:
+        '200':
+          description: Author updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Authors]
+      summary: Update an author
+      operationId: dashboardAuthorsPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/AuthorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAuthorRequest'
+      responses:
+        '200':
+          description: Author updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorEnvelope'
+    delete:
+      tags: [Authors]
+      summary: Delete an author
+      operationId: dashboardAuthorsDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/AuthorId'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      operationId: dashboardCategoriesIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Categories retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCategories'
+    post:
+      tags: [Categories]
+      summary: Create a category
+      operationId: dashboardCategoriesStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreCategoryRequest'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/categories/{category}:
+    get:
+      tags: [Categories]
+      summary: Get a category
+      operationId: dashboardCategoriesShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          description: Category found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Categories]
+      summary: Update a category
+      description: Reuses store validation — `title` and `discription` are required.
+      operationId: dashboardCategoriesUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreCategoryRequest'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Categories]
+      summary: Update a category
+      operationId: dashboardCategoriesPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreCategoryRequest'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryEnvelope'
+    delete:
+      tags: [Categories]
+      summary: Delete a category
+      operationId: dashboardCategoriesDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/publishers:
+    get:
+      tags: [Publishers]
+      summary: List publishers
+      operationId: dashboardPublishersIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Publishers retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPublishers'
+    post:
+      tags: [Publishers]
+      summary: Create a publisher
+      operationId: dashboardPublishersStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePublisherRequest'
+      responses:
+        '201':
+          description: Publisher created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/publishers/{publisher}:
+    get:
+      tags: [Publishers]
+      summary: Get a publisher
+      operationId: dashboardPublishersShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PublisherId'
+      responses:
+        '200':
+          description: Publisher found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Publishers]
+      summary: Update a publisher
+      operationId: dashboardPublishersUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PublisherId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePublisherRequest'
+      responses:
+        '200':
+          description: Publisher updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Publishers]
+      summary: Update a publisher
+      operationId: dashboardPublishersPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PublisherId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePublisherRequest'
+      responses:
+        '200':
+          description: Publisher updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherEnvelope'
+    delete:
+      tags: [Publishers]
+      summary: Delete a publisher
+      operationId: dashboardPublishersDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PublisherId'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/books/{isbn}/digital:
+    get:
+      tags: [Digital Assets]
+      summary: Get digital files for a book
+      operationId: dashboardDigitalShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      responses:
+        '200':
+          description: Digital asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigitalAssetEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Digital Assets]
+      summary: Upload or replace digital files
+      description: Multipart. On first create, at least one of `pdf` or `audio` is required.
+      operationId: dashboardDigitalUpsertPost
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpsertDigitalAssetRequest'
+      responses:
+        '200':
+          description: Digital asset saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigitalAssetEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Digital Assets]
+      summary: Upload or replace digital files
+      operationId: dashboardDigitalUpsertPut
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpsertDigitalAssetRequest'
+      responses:
+        '200':
+          description: Digital asset saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigitalAssetEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Digital Assets]
+      summary: Remove digital files
+      operationId: dashboardDigitalDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/favorites:
+    get:
+      tags: [Favorites]
+      summary: List a member's favorites
+      operationId: dashboardFavoritesIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: member_id
+          in: query
+          required: true
+          schema: { type: integer }
+          description: User ID of a MEMBER
+      responses:
+        '200':
+          description: Favorites retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoritesEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/reviews:
+    get:
+      tags: [Reviews]
+      summary: List reviews
+      operationId: dashboardReviewsIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: isbn, in: query, schema: { type: string } }
+        - { name: member_id, in: query, schema: { type: integer } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: per_page, in: query, schema: { type: integer, default: 15 } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Reviews retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReviews'
+
+  /v1/books/{isbn}/reviews:
+    get:
+      tags: [Reviews]
+      summary: List reviews for a book
+      operationId: dashboardReviewsByBook
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Isbn'
+      responses:
+        '200':
+          description: Reviews retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewsEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/reviews/{review}:
+    delete:
+      tags: [Reviews]
+      summary: Delete a review
+      operationId: dashboardReviewsDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: review
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/members:
+    get:
+      tags: [Members]
+      summary: List members
+      operationId: dashboardMembersIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Members retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsers'
+    post:
+      tags: [Members]
+      summary: Create a member
+      operationId: dashboardMembersStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreMemberRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreMemberRequest'
+      responses:
+        '201':
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/members/{member}:
+    get:
+      tags: [Members]
+      summary: Get a member
+      operationId: dashboardMembersShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        '200':
+          description: Member found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Members]
+      summary: Update a member
+      operationId: dashboardMembersUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Members]
+      summary: Partially update a member
+      operationId: dashboardMembersPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+    delete:
+      tags: [Members]
+      summary: Delete a member
+      operationId: dashboardMembersDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/members/{member}/borrowings:
+    get:
+      tags: [Members]
+      summary: List a member's borrowings
+      operationId: dashboardMembersBorrowings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Borrowings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBorrowings'
+
+  /v1/members/{member}/fines:
+    get:
+      tags: [Members]
+      summary: List a member's fines
+      operationId: dashboardMembersFines
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Fines retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFines'
+
+  /v1/librarians:
+    get:
+      tags: [Librarians]
+      summary: List librarians
+      description: 'Requires ADMIN.'
+      operationId: dashboardLibrariansIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Librarians retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsers'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Librarians]
+      summary: Create a librarian
+      description: 'Requires ADMIN.'
+      operationId: dashboardLibrariansStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreLibrarianRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreLibrarianRequest'
+      responses:
+        '201':
+          description: Librarian created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/librarians/{librarian}:
+    get:
+      tags: [Librarians]
+      summary: Get a librarian
+      operationId: dashboardLibrariansShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LibrarianId'
+      responses:
+        '200':
+          description: Librarian found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [Librarians]
+      summary: Update a librarian
+      operationId: dashboardLibrariansUpdate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LibrarianId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateLibrarianRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLibrarianRequest'
+      responses:
+        '200':
+          description: Librarian updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Librarians]
+      summary: Partially update a librarian
+      operationId: dashboardLibrariansPatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LibrarianId'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateLibrarianRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLibrarianRequest'
+      responses:
+        '200':
+          description: Librarian updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+    delete:
+      tags: [Librarians]
+      summary: Delete a librarian
+      operationId: dashboardLibrariansDestroy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LibrarianId'
+      responses:
+        '200':
+          $ref: '#/components/responses/MessageOnly'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/borrowings:
+    get:
+      tags: [Borrowings]
+      summary: List borrowings
+      operationId: dashboardBorrowingsIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: member_id, in: query, schema: { type: integer } }
+        - { name: is_returned, in: query, schema: { type: string }, description: '"true" = returned; any other value = not returned' }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Borrowings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBorrowings'
+    post:
+      tags: [Borrowings]
+      summary: Checkout a book
+      operationId: dashboardBorrowingsStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBorrowingRequest'
+      responses:
+        '201':
+          description: Borrowing created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowingEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/borrowings/{id}:
+    get:
+      tags: [Borrowings]
+      summary: Get a borrowing
+      operationId: dashboardBorrowingsShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Borrowing found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowingEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/borrowings/{id}/return:
+    put:
+      tags: [Borrowings]
+      summary: Return a book
+      operationId: dashboardBorrowingsReturn
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Book returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowingEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/borrowings/{id}/extend:
+    put:
+      tags: [Borrowings]
+      summary: Extend a borrowing
+      description: If `new_end_date` is omitted, the service defaults to existing end date + 7 days.
+      operationId: dashboardBorrowingsExtend
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtendBorrowingRequest'
+      responses:
+        '200':
+          description: Borrowing extended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowingEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/fines:
+    get:
+      tags: [Fines]
+      summary: List fines
+      operationId: dashboardFinesIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: member_id, in: query, schema: { type: integer } }
+        - { name: is_paid, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Fines retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFines'
+
+  /v1/fines/{id}/pay:
+    put:
+      tags: [Fines]
+      summary: Pay a fine with points
+      operationId: dashboardFinesPay
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Fine paid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FineEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/reservations:
+    get:
+      tags: [Reservations]
+      summary: List reservations
+      operationId: dashboardReservationsIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Reservations retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReservations'
+    post:
+      tags: [Reservations]
+      summary: Create a reservation
+      operationId: dashboardReservationsStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreReservationRequest'
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/reservations/{id}/cancel:
+    put:
+      tags: [Reservations]
+      summary: Cancel a reservation
+      operationId: dashboardReservationsCancel
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Reservation cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/reservations/{id}/ready:
+    put:
+      tags: [Reservations]
+      summary: Mark a reservation ready for pickup
+      operationId: dashboardReservationsReady
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Reservation marked ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/reservations/{id}/fulfill:
+    put:
+      tags: [Reservations]
+      summary: Fulfill a reservation
+      operationId: dashboardReservationsFulfill
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Reservation fulfilled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      operationId: dashboardOrdersIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: query, schema: { type: integer } }
+        - { name: state_id, in: query, schema: { type: integer } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Orders retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrders'
+    post:
+      tags: [Orders]
+      summary: Create an order
+      operationId: dashboardOrdersStore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get an order
+      operationId: dashboardOrdersShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Order found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/orders/{id}/state:
+    put:
+      tags: [Orders]
+      summary: Change order state
+      operationId: dashboardOrdersUpdateState
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStateRequest'
+      responses:
+        '200':
+          description: Order state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/points/balance:
+    get:
+      tags: [Points]
+      summary: Get a point balance
+      description: Defaults to the authenticated user. Pass `member_id` to look up a MEMBER.
+      operationId: dashboardPointsBalance
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: member_id, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Balance returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointBalanceEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/points/history:
+    get:
+      tags: [Points]
+      summary: Point transaction history
+      operationId: dashboardPointsHistory
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: member_id, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer, default: 15, minimum: 1, maximum: 100 } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: History retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPointTransactions'
+
+  /v1/points/top-up:
+    post:
+      tags: [Points]
+      summary: Redeem a top-up code for a member
+      operationId: dashboardPointsTopUp
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemTopUpCodeRequest'
+      responses:
+        '200':
+          description: Code redeemed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpCodeEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /v1/points/settings:
+    get:
+      tags: [Points]
+      summary: Get point settings
+      description: 'Requires ADMIN.'
+      operationId: dashboardPointsSettings
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Settings returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointSettingsEnvelope'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [Points]
+      summary: Update point settings
+      description: 'Requires ADMIN.'
+      operationId: dashboardPointsUpdateSettings
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePointSettingsRequest'
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointSettingsEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/points/adjust:
+    post:
+      tags: [Points]
+      summary: Manually adjust a member balance
+      description: 'Requires ADMIN. Positive adds points, negative subtracts. points cannot be 0.'
+      operationId: dashboardPointsAdjust
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustPointsRequest'
+      responses:
+        '200':
+          description: Balance adjusted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointTransactionEnvelope'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/top-up-codes:
+    get:
+      tags: [Top-Up Codes]
+      summary: List top-up codes
+      operationId: dashboardTopUpCodesIndex
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: is_used, in: query, schema: { type: string } }
+        - { name: user_id, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer, default: 15 } }
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Codes retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTopUpCodes'
+
+  /v1/top-up-codes/generate:
+    post:
+      tags: [Top-Up Codes]
+      summary: Generate top-up codes
+      operationId: dashboardTopUpCodesGenerate
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateTopUpCodesRequest'
+      responses:
+        '201':
+          description: Codes generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpCodesEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/reports/overdue:
+    get:
+      tags: [Reports]
+      summary: Overdue borrowings
+      operationId: dashboardReportsOverdue
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Overdue report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverdueReportEnvelope'
+
+  /v1/reports/stats:
+    get:
+      tags: [Reports]
+      summary: General library stats
+      operationId: dashboardReportsStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsReportEnvelope'
+
+  /v1/reports/most-borrowed:
+    get:
+      tags: [Reports]
+      summary: Most borrowed books
+      operationId: dashboardReportsMostBorrowed
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Top 10 books
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MostBorrowedReportEnvelope'
+
+  /v1/reports/fines-summary:
+    get:
+      tags: [Reports]
+      summary: Fines summary
+      operationId: dashboardReportsFinesSummary
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Fines summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinesSummaryEnvelope'
+
+  /v1/reports/inventory:
+    get:
+      tags: [Reports]
+      summary: Inventory snapshot
+      operationId: dashboardReportsInventory
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryReportEnvelope'
+
+  /v1/reports/points-summary:
+    get:
+      tags: [Reports]
+      summary: Points summary
+      operationId: dashboardReportsPointsSummary
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Points summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointsSummaryEnvelope'
+
+  /v1/reports/points-export:
+    get:
+      tags: [Reports]
+      summary: Export point transactions as CSV
+      operationId: dashboardReportsPointsExport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: query, schema: { type: integer } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: limit, in: query, schema: { type: integer, default: 1000, minimum: 1, maximum: 1000 } }
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+  /v1/reports/fines-export:
+    get:
+      tags: [Reports]
+      summary: Export fines as CSV
+      operationId: dashboardReportsFinesExport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 1000, minimum: 1, maximum: 1000 } }
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+  /v1/reports/overdue-export:
+    get:
+      tags: [Reports]
+      summary: Export overdue borrowings as CSV
+      operationId: dashboardReportsOverdueExport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 1000, minimum: 1, maximum: 1000 } }
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Token
+      description: Token only — Swagger adds the Bearer prefix
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, default: 1 }
+    Isbn:
+      name: isbn
+      in: path
+      required: true
+      schema: { type: string }
+      description: Book ISBN (primary key)
+    BookInstanceId:
+      name: book_instance
+      in: path
+      required: true
+      schema: { type: integer }
+    AuthorId:
+      name: author
+      in: path
+      required: true
+      schema: { type: integer }
+    CategoryId:
+      name: category
+      in: path
+      required: true
+      schema: { type: integer }
+    PublisherId:
+      name: publisher
+      in: path
+      required: true
+      schema: { type: integer }
+    MemberId:
+      name: member
+      in: path
+      required: true
+      schema: { type: integer }
+    LibrarianId:
+      name: librarian
+      in: path
+      required: true
+      schema: { type: integer }
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+
+  responses:
+    MessageOnly:
+      description: Success without a data payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    Unauthorized:
+      description: Missing or invalid token, or bad credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated but wrong role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: error
+            body: ليس لديك الصلاحية للوصول لهذا المورد
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    BusinessError:
+      description: Business rule failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    MessageResponse:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+
+    ErrorResponse:
+      type: object
+      properties:
+        message: { type: string, enum: [error] }
+        body: { type: string }
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message: { type: string, enum: [error] }
+        body: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        last_page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+
+    AdminLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: admin@example.com }
+        password: { type: string, format: password, example: password123 }
+
+    RegisterRequest:
+      type: object
+      required: [first_name, last_name, email, phone, identity_number, password, password_confirmation]
+      properties:
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^[0-9]+$', example: '0912345678' }
+        identity_number: { type: string, pattern: '^[0-9]+$' }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password }
+        adress: { type: string, nullable: true, maxLength: 255 }
+        participe_end_date: { type: string, format: date, nullable: true }
+        photo_image: { type: string, format: binary, description: png/jpg/jpeg/gif, max 2 MB }
+
+    StoreBookRequest:
+      type: object
+      required: [ISBN, auther_id, catagory_id, publisher_id, title, discription, price, amount, year_of_publishing, number_edition]
+      properties:
+        ISBN: { type: string, example: '9780141036144' }
+        auther_id: { type: integer, description: Author ID (authers table) }
+        catagory_id: { type: integer, description: Category ID (catagories table) }
+        publisher_id: { type: integer }
+        title: { type: string, maxLength: 255 }
+        discription: { type: string, description: Stored as discription; returned as description }
+        price: { type: number, minimum: 0 }
+        price_points: { type: integer, minimum: 0, nullable: true }
+        amount: { type: integer, minimum: 1 }
+        copies_count: { type: integer, minimum: 0, maximum: 500, nullable: true }
+        year_of_publishing: { type: string, maxLength: 4, example: '1949' }
+        number_edition: { type: string, maxLength: 50 }
+        cover_image: { type: string, format: binary }
+
+    UpdateBookRequest:
+      type: object
+      properties:
+        auther_id: { type: integer }
+        catagory_id: { type: integer }
+        publisher_id: { type: integer }
+        title: { type: string }
+        discription: { type: string }
+        price: { type: number, minimum: 0 }
+        price_points: { type: integer, minimum: 0 }
+        amount: { type: integer, minimum: 0 }
+        year_of_publishing: { type: string, maxLength: 4 }
+        number_edition: { type: string, maxLength: 50 }
+        cover_image: { type: string, format: binary, nullable: true }
+
+    StoreBookInstanceRequest:
+      type: object
+      required: [book_ISBN, state_id, condition]
+      properties:
+        book_ISBN: { type: string }
+        state_id: { type: integer }
+        condition: { type: string, enum: [new, worn, almost_new] }
+
+    UpdateBookInstanceRequest:
+      type: object
+      properties:
+        state_id: { type: integer }
+        condition: { type: string, enum: [new, worn, almost_new] }
+
+    StoreAuthorRequest:
+      type: object
+      required: [firstname, lastname, nationality]
+      properties:
+        firstname: { type: string, maxLength: 100 }
+        lastname: { type: string, maxLength: 100 }
+        nationality: { type: string, maxLength: 100 }
+
+    StoreCategoryRequest:
+      type: object
+      required: [title, discription]
+      properties:
+        title: { type: string, maxLength: 100 }
+        discription: { type: string, maxLength: 500, description: Stored as discription; returned as description }
+
+    StorePublisherRequest:
+      type: object
+      required: [name, location]
+      properties:
+        name: { type: string, maxLength: 255 }
+        location: { type: string, maxLength: 255 }
+
+    UpsertDigitalAssetRequest:
+      type: object
+      properties:
+        pdf: { type: string, format: binary, description: PDF, max 50 MB }
+        audio: { type: string, format: binary, description: mp3/wav/ogg/m4a/aac, max 100 MB }
+        is_free: { type: boolean }
+        remove_pdf: { type: boolean }
+        remove_audio: { type: boolean }
+
+    StoreMemberRequest:
+      type: object
+      required: [first_name, last_name, email, phone, identity_number, password, password_confirmation]
+      properties:
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^[0-9]+$' }
+        identity_number: { type: string, pattern: '^[0-9]+$' }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password }
+        adress: { type: string, nullable: true, maxLength: 255 }
+        participe_end_date: { type: string, format: date, nullable: true }
+        photo_image: { type: string, format: binary }
+
+    UpdateMemberRequest:
+      type: object
+      properties:
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^[0-9]+$' }
+        adress: { type: string, nullable: true }
+        participe_end_date: { type: string, format: date, nullable: true }
+        state: { type: string, enum: [ACTIVE, PAUSED, CANCLED] }
+        photo_image: { type: string, format: binary, nullable: true }
+
+    StoreLibrarianRequest:
+      type: object
+      required: [first_name, last_name, email, phone, identity_number, password, password_confirmation]
+      properties:
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^[0-9]+$' }
+        identity_number: { type: string, pattern: '^[0-9]+$' }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password }
+        adress: { type: string, nullable: true }
+        photo_image: { type: string, format: binary }
+
+    UpdateLibrarianRequest:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^[0-9]+$' }
+        adress: { type: string, nullable: true }
+        state: { type: string, enum: [ACTIVE, PAUSED, CANCLED] }
+        photo_image: { type: string, format: binary, nullable: true }
+
+    StoreBorrowingRequest:
+      type: object
+      required: [member_id, book_instance_id, end_date, borrowing_cost]
+      properties:
+        member_id: { type: integer }
+        book_instance_id: { type: integer }
+        end_date: { type: string, format: date }
+        borrowing_cost: { type: number, minimum: 0 }
+
+    ExtendBorrowingRequest:
+      type: object
+      properties:
+        new_end_date: { type: string, format: date, description: Must be after today; defaults to current end + 7 days }
+        cause: { type: string, nullable: true, maxLength: 255 }
+
+    StoreReservationRequest:
+      type: object
+      required: [user_id, book_instance_id]
+      properties:
+        user_id: { type: integer }
+        book_instance_id: { type: integer }
+        cause: { type: string, nullable: true, maxLength: 255 }
+
+    StoreOrderRequest:
+      type: object
+      required: [user_id, items]
+      properties:
+        user_id: { type: integer }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [isbn, count]
+            properties:
+              isbn: { type: string }
+              count: { type: integer, minimum: 1 }
+
+    UpdateOrderStateRequest:
+      type: object
+      required: [state_id]
+      properties:
+        state_id: { type: integer }
+
+    RedeemTopUpCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 32 }
+        member_id: { type: integer, nullable: true }
+
+    GenerateTopUpCodesRequest:
+      type: object
+      required: [count, points_value]
+      properties:
+        count: { type: integer, minimum: 1, maximum: 1000 }
+        points_value: { type: integer, minimum: 1 }
+        expires_at: { type: string, format: date, nullable: true }
+        user_id: { type: integer, nullable: true }
+
+    UpdatePointSettingsRequest:
+      type: object
+      properties:
+        syp_per_point: { type: number, minimum: 0.01 }
+        reward_return_on_time: { type: integer, minimum: 0 }
+
+    AdjustPointsRequest:
+      type: object
+      required: [member_id, points, note]
+      properties:
+        member_id: { type: integer }
+        points: { type: integer, description: Non-zero. Positive credits, negative debits }
+        note: { type: string, maxLength: 500 }
+
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        first_name: { type: string }
+        last_name: { type: string }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        identity_number: { type: string }
+        adress: { type: string, nullable: true }
+        role: { type: string, enum: [ADMIN, LIBRARIAN, MEMBER] }
+        state: { type: string, enum: [ACTIVE, PAUSED, CANCLED], nullable: true }
+        photo_url: { type: string, nullable: true }
+        participe_end_date: { type: string, format: date, nullable: true }
+        points_balance: { type: integer }
+        created_at: { type: string }
+
+    Book:
+      type: object
+      properties:
+        isbn: { type: string }
+        title: { type: string }
+        description: { type: string }
+        price: { type: number }
+        price_points: { type: integer, nullable: true }
+        amount: { type: integer }
+        rate_avg: { type: number }
+        year_of_publishing: { type: string }
+        number_edition: { type: string }
+        cover_url: { type: string, nullable: true }
+        author:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string }
+            nationality: { type: string, nullable: true }
+        category:
+          type: object
+          properties:
+            id: { type: integer }
+            title: { type: string }
+        publisher:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            location: { type: string, nullable: true }
+        instances_count: { type: integer }
+        digital:
+          $ref: '#/components/schemas/DigitalAsset'
+
+    BookInstance:
+      type: object
+      properties:
+        id: { type: integer }
+        condition: { type: string, enum: [new, worn, almost_new] }
+        state:
+          type: object
+          properties:
+            id: { type: integer }
+            state: { type: string }
+        book:
+          type: object
+          properties:
+            isbn: { type: string }
+            title: { type: string }
+
+    Author:
+      type: object
+      properties:
+        id: { type: integer }
+        firstname: { type: string }
+        lastname: { type: string }
+        full_name: { type: string }
+        nationality: { type: string }
+        books_count: { type: integer }
+
+    Category:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        books_count: { type: integer }
+
+    Publisher:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        location: { type: string }
+        books_count: { type: integer }
+
+    DigitalAsset:
+      type: object
+      properties:
+        has_digital: { type: boolean }
+        has_pdf: { type: boolean }
+        has_audio: { type: boolean }
+        locked: { type: boolean }
+        is_free: { type: boolean }
+        pdf_url: { type: string, nullable: true }
+        audio_url: { type: string, nullable: true }
+        pdf_size: { type: integer, nullable: true }
+        audio_size: { type: integer, nullable: true }
+
+    Favorite:
+      type: object
+      properties:
+        id: { type: integer }
+        book: { $ref: '#/components/schemas/Book' }
+        created_at: { type: string }
+
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        rate: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, nullable: true }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string }
+        book:
+          type: object
+          properties:
+            isbn: { type: string }
+            title: { type: string }
+
+    Borrowing:
+      type: object
+      properties:
+        id: { type: integer }
+        start_date: { type: string, format: date, nullable: true }
+        end_date: { type: string, format: date, nullable: true }
+        due_date: { type: string, format: date, nullable: true }
+        returned_at: { type: string, nullable: true }
+        is_returned: { type: boolean }
+        is_overdue: { type: boolean }
+        borrowing_cost: { type: number }
+        is_paid: { type: boolean }
+        paid_at: { type: string, nullable: true }
+        member:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string }
+            email: { type: string }
+        librarian:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string }
+        book_instance:
+          $ref: '#/components/schemas/BookInstance'
+        late_fine:
+          type: object
+          nullable: true
+          properties:
+            days_late: { type: integer }
+            fine: { type: number }
+            is_paid: { type: boolean }
+
+    LateFine:
+      type: object
+      properties:
+        id: { type: integer }
+        days_late: { type: integer }
+        fine: { type: number }
+        fine_points: { type: integer }
+        is_paid: { type: boolean }
+        paid_at: { type: string, nullable: true }
+        borrowing:
+          type: object
+          properties:
+            id: { type: integer }
+            start_date: { type: string }
+            end_date: { type: string }
+            member:
+              type: object
+              properties:
+                id: { type: integer }
+                full_name: { type: string }
+
+    Reservation:
+      type: object
+      properties:
+        id: { type: integer }
+        cause: { type: string, nullable: true }
+        notified_at: { type: string, nullable: true }
+        reserved_at: { type: string, nullable: true }
+        state:
+          type: object
+          properties:
+            id: { type: integer }
+            state: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string }
+            email: { type: string }
+        book_instance:
+          $ref: '#/components/schemas/BookInstance'
+
+    Order:
+      type: object
+      properties:
+        id: { type: integer }
+        total_prices: { type: number }
+        total_points: { type: integer }
+        total_amount: { type: number }
+        state:
+          type: object
+          properties:
+            id: { type: integer }
+            state: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              price_once: { type: number }
+              count: { type: integer }
+              total: { type: number }
+              book:
+                type: object
+                properties:
+                  isbn: { type: string }
+                  title: { type: string }
+
+    PointBalance:
+      type: object
+      properties:
+        user_id: { type: integer }
+        balance: { type: integer }
+
+    PointTransaction:
+      type: object
+      properties:
+        id: { type: integer }
+        user_id: { type: integer }
+        points: { type: integer }
+        type: { type: string }
+        reference_type: { type: string, nullable: true }
+        reference_id: { type: integer, nullable: true }
+        note: { type: string, nullable: true }
+        created_at: { type: string }
+
+    TopUpCode:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        points_value: { type: integer }
+        user_id: { type: integer, nullable: true }
+        is_used: { type: boolean }
+        expires_at: { type: string, nullable: true }
+        used_at: { type: string, nullable: true }
+        used_by: { type: integer, nullable: true }
+        created_by: { type: integer, nullable: true }
+        created_at: { type: string }
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            user: { $ref: '#/components/schemas/User' }
+            token: { type: string }
+
+    UserEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/User' }
+
+    BookEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Book' }
+
+    BookInstanceEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/BookInstance' }
+
+    AuthorEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Author' }
+
+    CategoryEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Category' }
+
+    PublisherEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Publisher' }
+
+    DigitalAssetEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/DigitalAsset' }
+
+    FavoritesEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Favorite' }
+
+    ReviewsEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Review' }
+
+    BorrowingEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Borrowing' }
+
+    FineEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/LateFine' }
+
+    ReservationEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Reservation' }
+
+    OrderEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/Order' }
+
+    PointBalanceEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/PointBalance' }
+
+    PointTransactionEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/PointTransaction' }
+
+    TopUpCodeEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data: { $ref: '#/components/schemas/TopUpCode' }
+
+    TopUpCodesEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TopUpCode' }
+
+    PointSettingsEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+          properties:
+            syp_per_point: { type: number }
+            reward_return_on_time: { type: integer }
+
+    PaginatedUsers:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedBooks:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Book' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedBookInstances:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/BookInstance' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedAuthors:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Author' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedCategories:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Category' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedPublishers:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Publisher' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedReviews:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Review' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedBorrowings:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Borrowing' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedFines:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/LateFine' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedReservations:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Reservation' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedOrders:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Order' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedPointTransactions:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PointTransaction' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    PaginatedTopUpCodes:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TopUpCode' }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+
+    OverdueReportEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            total: { type: integer }
+            borrowings:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  member: { type: string }
+                  book_title: { type: string }
+                  end_date: { type: string }
+                  days_overdue: { type: integer }
+
+    StatsReportEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            total_books: { type: integer }
+            total_members: { type: integer }
+            active_borrowings: { type: integer }
+            overdue_borrowings: { type: integer }
+            total_fines_unpaid: { type: number }
+            total_fines_collected: { type: number }
+            new_members_this_month: { type: integer }
+            borrowings_this_month: { type: integer }
+
+    MostBorrowedReportEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            books:
+              type: array
+              items:
+                type: object
+                properties:
+                  ISBN: { type: string }
+                  title: { type: string }
+                  borrow_count: { type: integer }
+
+    FinesSummaryEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            total_fines: { type: integer }
+            total_amount: { type: number }
+            paid_amount: { type: number }
+            unpaid_amount: { type: number }
+            unpaid_count: { type: integer }
+            paid_count: { type: integer }
+            avg_days_late: { type: number }
+
+    InventoryReportEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            total_books: { type: integer }
+            total_instances: { type: integer }
+            available_instances: { type: integer }
+            borrowed_instances: { type: integer }
+            reserved_instances: { type: integer }
+            damaged_instances: { type: integer }
+            lost_instances: { type: integer }
+            total_members: { type: integer }
+            expired_memberships: { type: integer }
+
+    PointsSummaryEnvelope:
+      type: object
+      properties:
+        message: { type: string, enum: [success] }
+        body: { type: string }
+        data:
+          type: object
+          properties:
+            total_balance_all_users: { type: integer }
+            total_top_ups: { type: integer }
+            total_spent: { type: integer }
+            total_rewards: { type: integer }
+            codes_unused: { type: integer }
+            codes_used: { type: integer }
+           

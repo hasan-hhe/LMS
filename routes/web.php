@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('api/documentation')->group(function () {
     Route::get('/', [SwaggerController::class, 'index'])->name('api.documentation');
     Route::get('/openapi.yaml', [SwaggerController::class, 'spec'])->name('api.documentation.spec');
+    Route::get('/dashboard.yaml', [SwaggerController::class, 'dashboardSpec'])->name('api.documentation.dashboard');
 });
 
 Route::get('/', function () {

@@ -15,7 +15,17 @@ class SwaggerController extends Controller
 
     public function spec(): Response
     {
-        $path = storage_path('api-docs/openapi.yaml');
+        return $this->yaml('openapi.yaml');
+    }
+
+    public function dashboardSpec(): Response
+    {
+        return $this->yaml('dashboard.yaml');
+    }
+
+    private function yaml(string $filename): Response
+    {
+        $path = storage_path('api-docs/'.$filename);
 
         if (! File::exists($path)) {
             abort(404, 'API documentation file not found');

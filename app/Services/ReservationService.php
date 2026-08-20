@@ -14,10 +14,10 @@ class ReservationService
 {
     public function __construct(private ReservationRepositoryInterface $reservationRepository) {}
 
-    public function listReservations(): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    public function listReservations(array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         try {
-            return $this->reservationRepository->getAllPaginated();
+            return $this->reservationRepository->getAllPaginated($filters);
         } catch (\Exception $e) {
             throw $e;
         }

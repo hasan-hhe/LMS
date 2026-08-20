@@ -8,11 +8,23 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ReservationRepository implements ReservationRepositoryInterface
 {
-    public function getAllPaginated(int $perPage = 15): LengthAwarePaginator
+    public function getAllPaginated(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        return Reservation::with(['user', 'bookInstance.book', 'state'])
-            ->orderByDesc('reserved_at')
-            ->paginate($perPage);
+        $query = Reservation::with(['user', 'bookInstance.book', 'state']);
+
+        if (! empty($filters['user_id'])) {
+            $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! empty($filters['book_instance_id'])) {
+            $query->where('book_instance_id', $filters['book_instance_id']);
+        }
+
+        if (! empty($filters['state'])) {
+            $query->whereHas('state', fn ($q) => $q->where('state', $filters['state']));
+        }
+
+        return $query->orderByDesc('reserved_at')->paginate($perPage);
     }
 
     public function findById(int $id): ?Reservation

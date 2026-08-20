@@ -17,6 +17,10 @@ class BorrowingRepository implements BorrowingRepositoryInterface
             $query->where('member_id', $filters['member_id']);
         }
 
+        if (!empty($filters['book_instance_id'])) {
+            $query->where('book_instance_id', $filters['book_instance_id']);
+        }
+
         if (!empty($filters['is_returned'])) {
             $filters['is_returned'] === 'true'
                 ? $query->whereNotNull('returned_at')

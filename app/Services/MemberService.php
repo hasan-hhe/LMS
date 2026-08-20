@@ -20,8 +20,13 @@ class MemberService
                 $query->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
                         ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
                         ->orWhere('identity_number', 'like', "%{$search}%");
+                    if (ctype_digit($search)) {
+                        $q->orWhere('id', (int) $search);
+                    }
                 });
             }
 

@@ -8,15 +8,18 @@ use App\Http\Requests\Reservation\StoreReservationRequest;
 use App\Http\Resources\ReservationResource;
 use App\Services\ReservationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ReservationController extends Controller
 {
     public function __construct(private ReservationService $reservationService) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $reservations = $this->reservationService->listReservations();
+            $reservations = $this->reservationService->listReservations(
+                $request->only(['state', 'user_id', 'book_instance_id'])
+            );
             return ResponseHelper::paginated(
                 ReservationResource::collection($reservations),
                 'تم جلب قائمة الحجوزات'

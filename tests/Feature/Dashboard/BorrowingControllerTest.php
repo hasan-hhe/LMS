@@ -9,6 +9,8 @@ use App\Models\Borrowing;
 use App\Models\Category;
 use App\Models\InstanceState;
 use App\Models\Publisher;
+use App\Models\Reservation;
+use App\Models\ReservationState;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -155,5 +157,131 @@ class BorrowingControllerTest extends TestCase
             ->getJson('/api/v1/borrowings')
             ->assertStatus(200)
             ->assertJsonStructure(['data', 'meta']);
+    }
+
+    public function test_index_filters_active_borrowing_by_instance(): void
+    {
+        $borrowing = Borrowing::create([
+            'member_id'        => $this->member->id,
+            'librarian_id'     => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date'       => now(),
+            'end_date'         => now()->addDays(14),
+            'due_date'         => now()->addDays(14),
+            'borrowing_cast'   => 0,
+            'is_paid'          => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/v1/borrowings?book_instance_id='.$this->instance->id.'&is_returned=false')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.id', $borrowing->id);
+    }
+
+    public function test_checkout_fulfills_member_reservation_on_reserved_copy(): void
+    {
+        $reservedState = InstanceState::create(['state' => 'reserved']);
+        $this->instance->update(['state_id' => $reservedState->id]);
+
+        $pending = ReservationState::create(['state' => 'pending']);
+        $fulfilled = ReservationState::create(['state' => 'fulfilled']);
+
+        $reservation = Reservation::create([
+            'user_id'          => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+            'state_id'         => $pending->id,
+            'cause'            => '',
+            'reserved_at'      => now(),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->postJson('/api/v1/borrowings', [
+                'member_id'        => $this->member->id,
+                'book_instance_id' => $this->instance->id,
+                'end_date'         => now()->addDays(14)->toDateString(),
+            ])
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('reservations', [
+            'id'       => $reservation->id,
+            'state_id' => $fulfilled->id,
+        ]);
+        $this->assertDatabaseHas('book_instances', [
+            'id'       => $this->instance->id,
+            'state_id' => InstanceState::where('state', 'borrowed')->value('id'),
+        ]);
+    }
+
+    public function test_checkout_fails_when_copy_is_reserved_for_another_member(): void
+    {
+        $otherMember = User::factory()->create([
+            'role'               => 'MEMBER',
+            'password_hash'      => bcrypt('p'),
+            'participe_end_date' => now()->addYear(),
+        ]);
+        $reservedState = InstanceState::create(['state' => 'reserved']);
+        $this->instance->update(['state_id' => $reservedState->id]);
+        $pending = ReservationState::create(['state' => 'pending']);
+
+        Reservation::create([
+            'user_id'          => $otherMember->id,
+            'book_instance_id' => $this->instance->id,
+            'state_id'         => $pending->id,
+            'cause'            => '',
+            'reserved_at'      => now(),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->postJson('/api/v1/borrowings', [
+                'member_id'        => $this->member->id,
+                'book_instance_id' => $this->instance->id,
+                'end_date'         => now()->addDays(14)->toDateString(),
+            ])
+            ->assertStatus(422);
+    }
+
+    public function test_return_keeps_copy_reserved_when_another_hold_exists(): void
+    {
+        $borrowedState = InstanceState::where('state', 'borrowed')->first();
+        $this->instance->update(['state_id' => $borrowedState->id]);
+
+        $borrowing = Borrowing::create([
+            'member_id'        => $this->member->id,
+            'librarian_id'     => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date'       => now()->subDays(7),
+            'end_date'         => now()->addDays(7),
+            'due_date'         => now()->addDays(7),
+            'borrowing_cast'   => 0,
+            'is_paid'          => false,
+        ]);
+
+        $pending = ReservationState::create(['state' => 'pending']);
+        InstanceState::create(['state' => 'reserved']);
+
+        Reservation::create([
+            'user_id'          => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+            'state_id'         => $pending->id,
+            'cause'            => '',
+            'reserved_at'      => now(),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/return")
+            ->assertStatus(200);
+
+        $this->assertDatabaseHas('book_instances', [
+            'id'       => $this->instance->id,
+            'state_id' => InstanceState::where('state', 'reserved')->value('id'),
+        ]);
     }
 }

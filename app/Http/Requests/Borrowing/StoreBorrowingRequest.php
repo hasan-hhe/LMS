@@ -20,7 +20,7 @@ class StoreBorrowingRequest extends FormRequest
             'member_id'        => 'required|integer|exists:users,id',
             'book_instance_id' => 'required|integer|exists:book_instances,id',
             'end_date'         => 'required|date|after:today',
-            'borrowing_cost'   => 'required|numeric|min:0',
+            'borrowing_cost'   => 'nullable|numeric|min:0',
         ];
     }
 

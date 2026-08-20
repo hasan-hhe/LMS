@@ -219,4 +219,25 @@ class AuthController extends Controller
             'تم جلب البيانات بنجاح'
         );
     }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'first_name' => ['sometimes', 'string', 'max:100'],
+            'last_name' => ['sometimes', 'string', 'max:100'],
+            'phone' => ['sometimes', 'string', 'regex:/^[0-9]+$/', 'unique:users,phone,'.$user->id],
+            'adress' => ['sometimes', 'nullable', 'string', 'max:255'],
+        ], [
+            'phone.regex' => 'رقم الهاتف يجب أن يحتوي على أرقام فقط',
+            'phone.unique' => 'رقم الهاتف مستخدم مسبقاً',
+        ]);
+
+        $user->update($data);
+
+        return ResponseHelper::success(
+            new UserResource($user->fresh()),
+            'تم تحديث الملف الشخصي بنجاح'
+        );
+    }
 }
