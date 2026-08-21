@@ -17,9 +17,10 @@ class StoreBookInstanceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'book_ISBN' => 'required|string|exists:books,ISBN',
-            'state_id'  => 'required|integer|exists:instance_states,id',
-            'condition' => 'required|in:new,worn,almost_new',
+            'book_ISBN'    => 'required|string|exists:books,ISBN',
+            'state_id'     => 'required|integer|exists:instance_states,id',
+            'condition'    => 'required|in:new,worn,almost_new',
+            'copies_count' => 'sometimes|integer|min:1|max:200',
         ];
     }
 
@@ -32,6 +33,9 @@ class StoreBookInstanceRequest extends FormRequest
             'state_id.exists'    => 'الحالة المحددة غير موجودة',
             'condition.required' => 'وضع النسخة مطلوب',
             'condition.in'       => 'وضع النسخة يجب أن يكون: جديد، مستعمل، أو شبه جديد',
+            'copies_count.integer' => 'عدد النسخ يجب أن يكون رقماً صحيحاً',
+            'copies_count.min'   => 'يجب إضافة نسخة واحدة على الأقل',
+            'copies_count.max'   => 'لا يمكن إضافة أكثر من 200 نسخة دفعة واحدة',
         ];
     }
 

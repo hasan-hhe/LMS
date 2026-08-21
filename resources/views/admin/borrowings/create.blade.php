@@ -13,18 +13,19 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
+                    <p class="text-muted">الاستعارة المباشرة لنسخة متاحة فقط. النسخة المحجوزة تُسلَّم من شاشة الحجوزات فتُنشأ الاستعارة تلقائياً. مسموح بنسخة واحدة لكل عضو.</p>
                     <form id="borrowingForm">
                         <div class="row">
                             <div class="col-md-6 form-group mb-3">
                                 <label>العضو *</label>
-                                <select name="member_id" id="member_id" class="form-control" required>
+                                <select name="member_id" id="member_id" class="form-control" data-remote="1" required>
                                     <option value="">اختر العضو</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
-                                <label>نسخة الكتاب *</label>
-                                <select name="book_instance_id" id="book_instance_id" class="form-control" required>
+                                <label>نسخة الكتاب المتاحة *</label>
+                                <select name="book_instance_id" id="book_instance_id" class="form-control" data-remote="1" required>
                                     <option value="">اختر نسخة الكتاب</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
@@ -34,11 +35,8 @@
                                 <input type="date" name="end_date" class="form-control" required>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-6 form-group mb-3">
-                                <label>تكلفة الاستعارة (نقاط)</label>
-                                <input type="number" step="0.01" min="0" name="borrowing_cost" class="form-control">
-                                <small class="form-text text-muted">ستُخصم هذه التكلفة من رصيد نقاط العضو عند تسجيل الاستعارة.</small>
-                                <div class="invalid-feedback"></div>
+                            <div class="col-md-12">
+                                <p class="text-muted mb-0">رسوم الاستعارة تُؤخذ من إعداد الكتاب (نقاط الاستعارة). إن كانت صفراً فالاستعارة مجانية.</p>
                             </div>
                         </div>
                         <div class="d-flex gap-2">

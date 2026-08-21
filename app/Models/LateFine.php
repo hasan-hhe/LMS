@@ -12,17 +12,21 @@ class LateFine extends Model
 
     protected $fillable = [
         'borrowing_id',
+        'type',
         'days_late',
         'fine',
         'fine_points',
+        'accrued_until',
         'is_paid',
         'paid_at',
+        'paid_via',
     ];
 
     protected $casts = [
         'days_late' => 'integer',
         'fine' => 'float',
         'fine_points' => 'integer',
+        'accrued_until' => 'date',
         'is_paid' => 'boolean',
         'paid_at' => 'datetime',
     ];

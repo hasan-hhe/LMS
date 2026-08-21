@@ -8,16 +8,19 @@
 <script src="{{ asset('assets/js/plugin/chart.js/chart.min.js') }}"></script>
 <script src="{{ asset('assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <script>
     window.LMS_ROUTES = {
         login: @json(route('admin.login')),
         dashboard: @json(route('admin.dashboard')),
         booksIndex: @json(route('admin.books.index')),
+        digitalAssetsIndex: @json(route('admin.digital-assets.index')),
         authorsIndex: @json(route('admin.authors.index')),
         categoriesIndex: @json(route('admin.categories.index')),
         publishersIndex: @json(route('admin.publishers.index')),
         bookInstancesIndex: @json(route('admin.book-instances.index')),
+        saleCopiesIndex: @json(route('admin.sale-copies.index')),
         membersIndex: @json(route('admin.members.index')),
         notifications: @json(route('admin.notifications')),
         librariansIndex: @json(route('admin.librarians.index')),
@@ -50,7 +53,7 @@
         if (!$table.length || !$table.is('table')) return;
 
         if ($.fn.DataTable.isDataTable($table[0])) {
-            $table.DataTable().clear().destroy();
+            $table.DataTable().destroy();
         }
 
         $table.DataTable({
@@ -97,6 +100,13 @@
             start();
         }
     };
+
+    window.runWhenDashboardReady(function () {
+        if (window.LmsHelpers) {
+            LmsHelpers.enhanceFileInputs();
+            LmsHelpers.enhanceSelects();
+        }
+    });
 
 </script>
 

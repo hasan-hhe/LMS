@@ -37,6 +37,21 @@ class DashboardViewController extends Controller
         return view('admin.books.show', compact('isbn'));
     }
 
+    public function digitalAssetsIndex(): View
+    {
+        return view('admin.digital-assets.index');
+    }
+
+    public function digitalAssetsCreate(): View
+    {
+        return view('admin.digital-assets.create');
+    }
+
+    public function digitalAssetsEdit(string $isbn): View
+    {
+        return view('admin.digital-assets.edit', compact('isbn'));
+    }
+
     public function bookInstancesIndex(): View
     {
         return view('admin.book-instances.index');
@@ -50,6 +65,16 @@ class DashboardViewController extends Controller
     public function bookInstancesEdit(int $id): View
     {
         return view('admin.book-instances.edit', compact('id'));
+    }
+
+    public function saleCopiesIndex(): View
+    {
+        return view('admin.sale-copies.index');
+    }
+
+    public function saleCopiesCreate(): View
+    {
+        return view('admin.sale-copies.create');
     }
 
     public function authorsIndex(): View

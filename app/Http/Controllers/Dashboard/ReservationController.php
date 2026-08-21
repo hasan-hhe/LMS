@@ -18,7 +18,7 @@ class ReservationController extends Controller
     {
         try {
             $reservations = $this->reservationService->listReservations(
-                $request->only(['state', 'user_id', 'book_instance_id'])
+                $request->only(['state', 'user_id', 'book_instance_id', 'per_page'])
             );
             return ResponseHelper::paginated(
                 ReservationResource::collection($reservations),
@@ -59,11 +59,15 @@ class ReservationController extends Controller
         }
     }
 
-    public function fulfill(int $id): JsonResponse
+    public function fulfill(Request $request, int $id): JsonResponse
     {
         try {
-            $reservation = $this->reservationService->fulfillReservation($id);
-            return ResponseHelper::success(new ReservationResource($reservation), 'تم تأكيد استلام الحجز');
+            $reservation = $this->reservationService->fulfillReservation(
+                $id,
+                (int) $request->user()->id,
+                $request->input('end_date')
+            );
+            return ResponseHelper::success(new ReservationResource($reservation), 'تم تسليم الحجز وتسجيل الاستعارة');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }

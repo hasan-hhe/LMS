@@ -54,9 +54,8 @@
                 form.state.value = librarian.state || 'ACTIVE';
             }
 
-            if (librarian.photo_url) {
-                $('#photoPreview').attr('src', librarian.photo_url).show();
-            }
+            LmsHelpers.setFileCurrentUrl('[name="photo_image"]', librarian.photo_url || '');
+            LmsHelpers.enhanceFileInputs('#librarianForm');
         }).catch(LmsHelpers.handleApiError);
     }
 
@@ -75,10 +74,10 @@
                 : LmsApi.createLibrarian(formData);
 
             return request.then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                setTimeout(function () {
-                    window.location.href = indexUrl;
-                }, 500);
+                LmsHelpers.afterFormSave(res, { isEdit: !!librarianId, indexUrl: indexUrl });
+                if (librarianId && res.data?.photo_url) {
+                    LmsHelpers.setFileCurrentUrl('[name="photo_image"]', res.data.photo_url);
+                }
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#librarianForm');
             });

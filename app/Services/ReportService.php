@@ -6,7 +6,9 @@ use App\Models\Book;
 use App\Models\BookInstance;
 use App\Models\Borrowing;
 use App\Models\LateFine;
+use App\Models\Order;
 use App\Models\PointTransaction;
+use App\Models\Reservation;
 use App\Models\TopUpCode;
 use App\Models\User;
 use App\Models\UserPoint;
@@ -31,7 +33,7 @@ class ReportService
                     'member'      => $b->member ? $b->member->fullName() : null,
                     'book_title'  => $b->bookInstance?->book?->title,
                     'end_date'    => $b->end_date?->toDateString(),
-                    'days_overdue' => now()->diffInDays($b->end_date),
+                    'days_overdue' => $b->daysOverdue(),
                 ]),
             ];
         } catch (\Exception $e) {
@@ -56,6 +58,8 @@ class ReportService
                 'borrowings_this_month'    => Borrowing::whereMonth('start_date', now()->month)
                     ->whereYear('start_date', now()->year)
                     ->count(),
+                'ready_reservations'       => Reservation::whereHas('state', fn ($q) => $q->where('state', 'ready'))->count(),
+                'new_orders'               => Order::whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'جديد']))->count(),
             ];
         } catch (\Exception $e) {
             throw $e;

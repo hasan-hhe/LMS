@@ -10,7 +10,7 @@ class BookRepository implements BookRepositoryInterface
 {
     public function getAllPaginated(array $filters, int $perPage = 15): LengthAwarePaginator
     {
-        $query = Book::with(['author', 'category', 'publisher']);
+        $query = Book::with(['author', 'category', 'publisher'])->withCount('instances');
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -34,12 +34,16 @@ class BookRepository implements BookRepositoryInterface
             $query->where('year_of_publishing', $filters['year']);
         }
 
+        $perPage = min(100, max(1, (int) ($filters['per_page'] ?? $perPage)));
+
         return $query->paginate($perPage);
     }
 
     public function findByIsbn(string $isbn): ?Book
     {
-        return Book::with(['author', 'category', 'publisher', 'instances.state', 'digitalAsset'])->find($isbn);
+        return Book::with(['author', 'category', 'publisher', 'instances.state', 'digitalAsset'])
+            ->withCount('instances')
+            ->find($isbn);
     }
 
     public function create(array $data): Book
@@ -51,7 +55,7 @@ class BookRepository implements BookRepositoryInterface
     {
         $book->update($data);
 
-        return $book->fresh(['author', 'category', 'publisher']);
+        return $book->fresh(['author', 'category', 'publisher'])->loadCount('instances');
     }
 
     public function delete(Book $book): bool

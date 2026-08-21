@@ -18,6 +18,7 @@ class MemberBorrowingResource extends JsonResource
         $daysUntilDue = !$isOverdue
             ? (int) now()->startOfDay()->diffInDays($this->end_date->startOfDay(), false)
             : 0;
+        $extension = $this->extensionQuote();
 
         return [
             'id'             => $this->id,
@@ -28,6 +29,22 @@ class MemberBorrowingResource extends JsonResource
             'is_overdue'     => $isOverdue,
             'days_overdue'   => $daysOverdue,
             'days_until_due' => max(0, $daysUntilDue),
+            'borrow_points'  => (int) ($book?->borrow_points ?? 0),
+            'has_borrow_points' => (int) ($book?->borrow_points ?? 0) > 0,
+            'extension'      => $extension,
+            'extension_points' => $extension['points'] ?? 0,
         ];
+    }
+
+    private function extensionQuote(): array
+    {
+        try {
+            return app(\App\Services\BorrowingService::class)->quoteExtension((int) $this->id);
+        } catch (\Throwable) {
+            return [
+                'can_extend' => false,
+                'points' => 0,
+            ];
+        }
     }
 }

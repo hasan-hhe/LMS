@@ -25,7 +25,7 @@ class PublisherController extends Controller
                 });
             }
 
-            $publishers = $query->paginate(15);
+            $publishers = $query->paginate(ResponseHelper::perPage($request));
             return ResponseHelper::paginated(PublisherResource::collection($publishers), 'تم جلب قائمة دور النشر');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);

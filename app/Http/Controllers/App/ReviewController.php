@@ -25,14 +25,14 @@ class ReviewController extends Controller
     public function store(StoreReviewRequest $request): JsonResponse
     {
         try {
-            $review = $this->reviews->createOrUpdate(
+            $review = $this->reviews->create(
                 $request->user()->id,
                 $request->string('isbn')->toString(),
                 $request->integer('rate'),
                 $request->input('comment')
             );
 
-            return ResponseHelper::success(new ReviewResource($review), 'تم حفظ التقييم');
+            return ResponseHelper::success(new ReviewResource($review), 'تم إضافة التقييم');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }

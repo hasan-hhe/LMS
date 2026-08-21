@@ -14,6 +14,13 @@ class UpdateBookRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('has_borrow_points') && ! $this->boolean('has_borrow_points')) {
+            $this->merge(['borrow_points' => 0]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -24,6 +31,10 @@ class UpdateBookRequest extends FormRequest
             'discription' => 'sometimes|string',
             'price' => 'sometimes|numeric|min:0',
             'price_points' => 'sometimes|integer|min:0',
+            'has_borrow_points' => 'sometimes|boolean',
+            'borrow_points' => $this->boolean('has_borrow_points')
+                ? 'required|integer|min:1'
+                : 'sometimes|nullable|integer|min:0',
             'amount' => 'sometimes|integer|min:0',
             'year_of_publishing' => 'sometimes|string|max:4',
             'number_edition' => 'sometimes|string|max:50',
@@ -40,6 +51,9 @@ class UpdateBookRequest extends FormRequest
             'price.numeric' => 'سعر الكتاب يجب أن يكون رقماً',
             'price.min' => 'سعر الكتاب يجب أن يكون أكبر من أو يساوي صفر',
             'price_points.integer' => 'سعر الكتاب بالنقاط يجب أن يكون رقماً صحيحاً',
+            'borrow_points.required' => 'حدد عدد نقاط الاستعارة',
+            'borrow_points.integer' => 'نقاط الاستعارة يجب أن تكون رقماً صحيحاً',
+            'borrow_points.min' => 'إذا كانت الاستعارة عليها نقاط فيجب أن تكون نقطة واحدة على الأقل',
             'amount.integer' => 'كمية الكتب يجب أن تكون رقماً صحيحاً',
             'cover_image.image' => 'الغلاف يجب أن يكون صورة',
             'cover_image.mimes' => 'صيغة الغلاف يجب أن تكون: png, jpg, jpeg',

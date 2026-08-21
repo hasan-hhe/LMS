@@ -90,4 +90,42 @@ class FineControllerTest extends TestCase
             ->putJson("/api/v1/fines/{$this->fine->id}/pay")
             ->assertStatus(422);
     }
+
+    public function test_pay_points_applies_available_balance_and_keeps_remainder(): void
+    {
+        UserPoint::where('user_id', $this->fine->borrowing->member_id)->update(['balance' => 4]);
+        $this->fine->update(['fine_points' => 10, 'fine' => 5]);
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/fines/{$this->fine->id}/pay", ['payment_method' => 'points'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_paid', false)
+            ->assertJsonPath('data.fine_points', 6);
+
+        $this->assertDatabaseHas('user_points', [
+            'user_id' => $this->fine->borrowing->member_id,
+            'balance' => 0,
+        ]);
+    }
+
+    public function test_pay_cash_does_not_debit_points(): void
+    {
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/fines/{$this->fine->id}/pay", ['payment_method' => 'cash'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_paid', true);
+
+        $this->assertDatabaseHas('user_points', [
+            'user_id' => $this->fine->borrowing->member_id,
+            'balance' => 500,
+        ]);
+        $this->assertDatabaseHas('late_fines', [
+            'id' => $this->fine->id,
+            'is_paid' => true,
+            'paid_via' => 'cash',
+        ]);
+    }
 }

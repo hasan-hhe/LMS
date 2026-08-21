@@ -4,7 +4,9 @@
     const indexUrl = window.LMS_ROUTES?.borrowingsIndex || '/admin/borrowings';
 
     const borrowingsFilterConfig = {
-        extra: { is_returned: 'false' },
+        fields: {
+            is_returned: '#filterReturned',
+        },
     };
 
     function getBorrowingsListParams(page) {
@@ -29,38 +31,65 @@
             totalSelector: '#totalBorrowings',
             renderRow: function (borrowing, index, meta) {
                 const rowNum = ((meta.current_page || 1) - 1) * (meta.per_page || 15) + index + 1;
-                const status = borrowing.is_overdue
-                    ? '<span class="badge bg-danger">متأخر</span>'
-                    : '<span class="badge bg-primary">نشط</span>';
+                let status;
+                if (borrowing.is_returned) {
+                    status = '<span class="badge bg-success">معاد</span>';
+                } else if (borrowing.is_overdue) {
+                    status = '<span class="badge bg-danger">متأخر</span>';
+                } else {
+                    status = '<span class="badge bg-primary">نشط</span>';
+                }
+                const actions = borrowing.is_returned
+                    ? '-'
+                    : '<button type="button" class="btn btn-sm btn-success btn-return-borrowing" data-id="' + borrowing.id + '"><i class="fa fa-undo"></i> إعادة</button> ' +
+                      '<button type="button" class="btn btn-sm btn-warning btn-extend-borrowing" data-id="' + borrowing.id + '"><i class="fa fa-calendar-plus"></i> تمديد</button> ' +
+                      '<button type="button" class="btn btn-sm btn-info btn-admin-extend-borrowing" data-id="' + borrowing.id + '"><i class="fa fa-user-shield"></i> تمديد إداري</button>';
                 return '<tr>' +
                     '<td>' + rowNum + '</td>' +
                     '<td>' + (borrowing.member?.full_name || '-') + '</td>' +
                     '<td>' + (borrowing.book_instance?.book?.title || '-') + '</td>' +
                     '<td>' + LmsHelpers.formatDate(borrowing.start_date) + '</td>' +
                     '<td>' + LmsHelpers.formatDate(borrowing.end_date) + '</td>' +
+                    '<td>' + LmsHelpers.formatDate(borrowing.returned_at) + '</td>' +
                     '<td>' + status + '</td>' +
-                    '<td>' +
-                    '<button type="button" class="btn btn-sm btn-success btn-return-borrowing" data-id="' + borrowing.id + '"><i class="fa fa-undo"></i> إعادة</button> ' +
-                    '<button type="button" class="btn btn-sm btn-warning btn-extend-borrowing" data-id="' + borrowing.id + '"><i class="fa fa-calendar-plus"></i> تمديد</button>' +
-                    '</td></tr>';
+                    '<td>' + actions + '</td></tr>';
             },
         });
     }
 
-    function promptExtendBorrowing(borrowingId, trigger) {
+    function promptExtendBorrowing(borrowingId, trigger, administrative) {
         const wrapper = document.createElement('div');
         wrapper.innerHTML =
             '<label class="form-label">تاريخ التمديد الجديد</label>' +
             '<input type="date" id="swalNewEndDate" class="form-control mb-3">' +
+            '<p class="text-muted mb-2" id="swalExtensionQuote">جاري حساب النقاط...</p>' +
             '<label class="form-label">السبب (اختياري)</label>' +
             '<input type="text" id="swalExtendCause" class="form-control" placeholder="سبب التمديد">';
 
+        function refreshQuote() {
+            const dateInput = document.getElementById('swalNewEndDate');
+            const quoteEl = document.getElementById('swalExtensionQuote');
+            if (!quoteEl) return;
+            const params = dateInput && dateInput.value ? { new_end_date: dateInput.value } : {};
+            LmsApi.quoteBorrowingExtension(borrowingId, params).then(function (res) {
+                const quote = res.data || {};
+                if (administrative) {
+                    quoteEl.textContent = 'تمديد إداري بدون خصم نقاط من العضو.';
+                    return;
+                }
+                quoteEl.textContent = 'النقاط المطلوبة: ' + (quote.points ?? 0) +
+                    (quote.can_extend ? '' : ' — ' + (quote.reason || 'لا يمكن التمديد الآن'));
+            }).catch(function () {
+                quoteEl.textContent = 'تعذر حساب تكلفة التمديد';
+            });
+        }
+
         swal({
-            title: 'تمديد الاستعارة',
+            title: administrative ? 'تمديد إداري' : 'تمديد الاستعارة',
             content: wrapper,
             buttons: {
                 cancel: { text: 'إلغاء', visible: true, className: 'btn btn-secondary' },
-                confirm: { text: 'تمديد', className: 'btn btn-warning' },
+                confirm: { text: administrative ? 'تمديد إداري' : 'تمديد', className: administrative ? 'btn btn-info' : 'btn btn-warning' },
             },
         }).then(function (confirmed) {
             if (!confirmed) return;
@@ -77,44 +106,67 @@
                 return LmsApi.extendBorrowing(borrowingId, {
                     new_end_date: newEndDate,
                     cause: cause || undefined,
+                    administrative: administrative ? true : undefined,
                 }).then(function (res) {
                     LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                     loadBorrowingsList(1);
                 }).catch(LmsHelpers.handleApiError);
             });
         });
+
+        setTimeout(function () {
+            const dateInput = document.getElementById('swalNewEndDate');
+            if (dateInput) {
+                dateInput.addEventListener('change', refreshQuote);
+            }
+            refreshQuote();
+        }, 0);
     }
 
     function fillMembersSelect() {
-        return LmsApi.getMembers({ per_page: 200 }).then(function (res) {
-            LmsHelpers.fillSelect('#member_id', res.data, 'id', function (member) {
+        LmsHelpers.initRemoteSelect('#member_id', {
+            placeholder: 'اختر العضو',
+            valueKey: 'id',
+            labelFn: function (member) {
                 return (member.full_name || '') + ' (' + (member.email || '') + ')';
-            });
+            },
+            fetchFn: function (query) {
+                return LmsApi.getMembers({ search: query, per_page: 30 }).then(LmsHelpers.extractItems);
+            },
         });
+        return Promise.resolve();
     }
 
     function fillAvailableInstancesSelect() {
-        const params = { per_page: 200 };
         const availableStateId = getAvailableStateId();
-        if (availableStateId) {
-            params.state_id = availableStateId;
-        }
-
-        return LmsApi.getBookInstances(params).then(function (res) {
-            let instances = res.data || [];
-            if (!availableStateId) {
-                instances = instances.filter(function (instance) {
-                    return instance.state?.state === 'available';
-                });
-            }
-
-            LmsHelpers.fillSelect('#book_instance_id', instances, 'id', function (instance) {
+        LmsHelpers.initRemoteSelect('#book_instance_id', {
+            placeholder: 'اختر نسخة الكتاب',
+            valueKey: 'id',
+            labelFn: function (instance) {
                 const title = instance.book?.title || 'نسخة';
                 const isbn = instance.book?.isbn ? ' (' + instance.book.isbn + ')' : '';
                 const condition = LmsHelpers.conditionLabel(instance.condition);
-                return title + isbn + ' - ' + condition;
-            });
+                const borrowPoints = Number(instance.book?.borrow_points || 0);
+                const cost = borrowPoints > 0 ? ' — ' + borrowPoints + ' نقطة للاستعارة' : ' — استعارة مجانية';
+                return title + isbn + ' - ' + condition + cost;
+            },
+            fetchFn: function (query) {
+                const params = { search: query, per_page: 30 };
+                if (availableStateId) {
+                    params.state_id = availableStateId;
+                }
+                return LmsApi.getBookInstances(params).then(function (res) {
+                    let instances = LmsHelpers.extractItems(res);
+                    if (!availableStateId) {
+                        instances = instances.filter(function (instance) {
+                            return instance.state?.state === 'available';
+                        });
+                    }
+                    return instances;
+                });
+            },
         });
+        return Promise.resolve();
     }
 
     function initBorrowingForm() {
@@ -144,20 +196,26 @@
     runWhenDashboardReady(function () {
         if (document.getElementById('borrowingsTableBody')) {
             loadBorrowingsList(1);
+            LmsHelpers.bindTableFilters(borrowingsFilterConfig, loadBorrowingsList);
 
             $(document).on('click', '.btn-return-borrowing', function () {
                 const btn = this;
                 const id = $(this).data('id');
-                swal('هل أنت متأكد من إعادة هذا الكتاب؟', {
+                swal({
+                    title: 'إعادة الكتاب',
+                    text: 'اختر حالة النسخة عند الإرجاع. الإتلاف أو الفقد يفرض غرامة بقيمة الكتاب.',
                     icon: 'warning',
                     buttons: {
                         cancel: { text: 'إلغاء', visible: true, className: 'btn btn-secondary' },
-                        confirm: { text: 'إعادة', className: 'btn btn-success' },
+                        ok: { text: 'سليم', className: 'btn btn-success' },
+                        damaged: { text: 'تالف', className: 'btn btn-warning' },
+                        lost: { text: 'مفقود', className: 'btn btn-danger' },
                     },
-                }).then(function (confirmed) {
-                    if (!confirmed) return;
+                }).then(function (choice) {
+                    if (!choice || choice === 'cancel') return;
+                    const outcome = choice === 'damaged' || choice === 'lost' ? choice : 'ok';
                     LmsHelpers.withBusy(btn, function () {
-                        return LmsApi.returnBorrowing(id).then(function (res) {
+                        return LmsApi.returnBorrowing(id, { outcome: outcome }).then(function (res) {
                             LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                             loadBorrowingsList(1);
                         }).catch(LmsHelpers.handleApiError);
@@ -166,7 +224,10 @@
             });
 
             $(document).on('click', '.btn-extend-borrowing', function () {
-                promptExtendBorrowing($(this).data('id'), this);
+                promptExtendBorrowing($(this).data('id'), this, false);
+            });
+            $(document).on('click', '.btn-admin-extend-borrowing', function () {
+                promptExtendBorrowing($(this).data('id'), this, true);
             });
         }
 

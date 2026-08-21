@@ -40,10 +40,24 @@
                     </a>
                 </li>
 
+                <li class="nav-item {{ Route::is('admin.digital-assets.*') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
+                    <a href="{{ route('admin.digital-assets.index') }}">
+                        <i class="fas fa-file-alt"></i>
+                        <p>المحتوى الرقمي</p>
+                    </a>
+                </li>
+
                 <li class="nav-item {{ Route::is('admin.book-instances.*') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
                     <a href="{{ route('admin.book-instances.index') }}">
                         <i class="fas fa-copy"></i>
-                        <p>نسخ الكتب</p>
+                        <p>نسخ الكتب الاستعارة</p>
+                    </a>
+                </li>
+
+                <li class="nav-item {{ Route::is('admin.sale-copies.*') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
+                    <a href="{{ route('admin.sale-copies.index') }}">
+                        <i class="fas fa-shopping-basket"></i>
+                        <p>نسخ الكتب البيع</p>
                     </a>
                 </li>
 
@@ -154,7 +168,7 @@
                 <li class="nav-item {{ Route::is('admin.points.settings') ? 'active' : '' }}" data-role="ADMIN">
                     <a href="{{ route('admin.points.settings') }}">
                         <i class="fas fa-cog"></i>
-                        <p>إعدادات النقاط</p>
+                        <p>إعدادات عامة</p>
                     </a>
                 </li>
 

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Book;
+use App\Models\Borrowing;
+use App\Models\OrderItem;
 use App\Models\Review;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
@@ -56,7 +58,13 @@ class ReviewService
             ->get();
     }
 
-    public function createOrUpdate(int $userId, string $isbn, int $rate, ?string $comment): Review
+    public function canReview(int $userId, string $isbn): bool
+    {
+        return ! $this->alreadyReviewed($userId, $isbn)
+            && $this->completedLoanOrPurchase($userId, $isbn);
+    }
+
+    public function create(int $userId, string $isbn, int $rate, ?string $comment): Review
     {
         return DB::transaction(function () use ($userId, $isbn, $rate, $comment) {
             $book = Book::query()->lockForUpdate()->find($isbn);
@@ -64,10 +72,14 @@ class ReviewService
                 throw new \Exception('الكتاب غير موجود');
             }
 
-            $review = Review::updateOrCreate(
-                ['user_id' => $userId, 'book_ISBN' => $isbn],
-                ['rate' => $rate, 'comment' => $comment ?? '']
-            );
+            $this->assertCanCreate($userId, $isbn);
+
+            $review = Review::query()->create([
+                'user_id' => $userId,
+                'book_ISBN' => $isbn,
+                'rate' => $rate,
+                'comment' => $comment ?? '',
+            ]);
 
             $this->recalculate($book);
 
@@ -94,6 +106,45 @@ class ReviewService
                 $this->recalculate($book);
             }
         });
+    }
+
+    private function assertCanCreate(int $userId, string $isbn): void
+    {
+        if ($this->alreadyReviewed($userId, $isbn)) {
+            throw new \Exception('لقد قيّمت هذا الكتاب مسبقاً');
+        }
+
+        if (! $this->completedLoanOrPurchase($userId, $isbn)) {
+            throw new \Exception('يمكن التقييم فقط بعد إعادة الكتاب من الاستعارة أو بعد شراء الكتاب');
+        }
+    }
+
+    private function alreadyReviewed(int $userId, string $isbn): bool
+    {
+        return Review::query()
+            ->where('user_id', $userId)
+            ->where('book_ISBN', $isbn)
+            ->exists();
+    }
+
+    private function completedLoanOrPurchase(int $userId, string $isbn): bool
+    {
+        $returnedBorrowing = Borrowing::query()
+            ->where('member_id', $userId)
+            ->whereNotNull('returned_at')
+            ->whereHas('bookInstance', fn ($query) => $query->where('book_ISBN', $isbn))
+            ->exists();
+
+        if ($returnedBorrowing) {
+            return true;
+        }
+
+        return OrderItem::query()
+            ->where('book_ISBN', $isbn)
+            ->whereHas('order', fn ($query) => $query
+                ->where('user_id', $userId)
+                ->whereHas('state', fn ($state) => $state->where('state', 'confirmed')))
+            ->exists();
     }
 
     private function recalculate(Book $book): void

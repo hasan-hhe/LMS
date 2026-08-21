@@ -125,7 +125,7 @@ class ReportController extends Controller
             $borrowing->bookInstance?->book_ISBN,
             $borrowing->bookInstance?->book?->title,
             $borrowing->end_date?->format('Y-m-d'),
-            now()->diffInDays($borrowing->end_date),
+            $borrowing->daysOverdue(),
         ]));
     }
 

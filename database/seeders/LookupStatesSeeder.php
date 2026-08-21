@@ -18,7 +18,7 @@ class LookupStatesSeeder extends Seeder
                 InstanceState::firstOrCreate(['state' => $state]);
             }
 
-            foreach (['pending', 'confirmed', 'cancelled', 'rejected'] as $state) {
+            foreach (['pending', 'confirmed', 'delivered', 'cancelled', 'rejected'] as $state) {
                 OrderState::firstOrCreate(['state' => $state]);
             }
 

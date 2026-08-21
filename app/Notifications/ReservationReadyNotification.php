@@ -3,13 +3,14 @@
 namespace App\Notifications;
 
 use App\Models\Reservation;
+use App\Notifications\Concerns\BrandedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ReservationReadyNotification extends Notification
 {
-    use Queueable;
+    use BrandedMail, Queueable;
 
     public function __construct(public Reservation $reservation) {}
 
@@ -20,7 +21,7 @@ class ReservationReadyNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return $this->mail()
             ->subject('حجزك جاهز للاستلام')
             ->greeting('مرحباً '.$notifiable->fullName())
             ->line('أصبح كتاب "'.$this->reservation->bookInstance?->book?->title.'" جاهزاً للاستلام.')

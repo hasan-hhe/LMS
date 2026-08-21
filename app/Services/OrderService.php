@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
 
 class OrderService
 {
-    public function __construct(private PointService $pointService) {}
+    public const PICKUP_HOURS = 48;
+
+    public function __construct(private PointService $pointService, private FineService $fineService) {}
 
     public function listOrders(array $filters): LengthAwarePaginator
     {
@@ -52,6 +54,7 @@ class OrderService
     {
         DB::beginTransaction();
         try {
+            $this->fineService->assertMemberHasNoUnpaidFines((int) $data['user_id']);
             $pendingState = $this->findOrFailOrderState('pending');
 
             [$totalPrice, $totalPoints, $totalAmount] = $this->calculateOrderTotals($data['items']);
@@ -90,10 +93,12 @@ class OrderService
             }
 
             $currentState = OrderState::find($order->state_id);
+            $this->assertValidTransition($currentState?->state, $state->state);
             $isFirstConfirmation = $state->state === 'confirmed'
                 && $currentState?->state !== 'confirmed';
 
             if ($isFirstConfirmation) {
+                $this->fineService->assertMemberHasNoUnpaidFines((int) $order->user_id);
                 $requiredStock = $order->items()
                     ->select('book_ISBN', DB::raw('SUM(count) as required_count'))
                     ->groupBy('book_ISBN')
@@ -130,7 +135,19 @@ class OrderService
                 }
             }
 
-            $order->update(['state_id' => $stateId]);
+            if ($state->state === 'cancelled' && $currentState?->state === 'confirmed') {
+                $this->refundAndRestock($order);
+            }
+
+            $payload = ['state_id' => $stateId];
+            if ($isFirstConfirmation) {
+                $payload['pickup_expires_at'] = now()->addHours(self::PICKUP_HOURS);
+            }
+            if (in_array($state->state, ['cancelled', 'rejected', 'delivered'], true)) {
+                $payload['pickup_expires_at'] = null;
+            }
+
+            $order->update($payload);
 
             DB::commit();
 
@@ -145,6 +162,69 @@ class OrderService
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    public function expireUnclaimedOrders(): int
+    {
+        $cancelled = OrderState::where('state', 'cancelled')->first();
+        if (! $cancelled) {
+            return 0;
+        }
+
+        $orders = Order::query()
+            ->whereNotNull('pickup_expires_at')
+            ->where('pickup_expires_at', '<', now())
+            ->whereHas('state', fn ($q) => $q->where('state', 'confirmed'))
+            ->get();
+
+        $count = 0;
+        foreach ($orders as $order) {
+            try {
+                $this->updateOrderState($order->id, $cancelled->id);
+                $count++;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $count;
+    }
+
+    private function refundAndRestock(Order $order): void
+    {
+        $alreadyRefunded = PointTransaction::where([
+            'user_id' => $order->user_id,
+            'reference_type' => Order::class,
+            'reference_id' => (string) $order->id,
+        ])->where('points', '>', 0)->exists();
+
+        if (! $alreadyRefunded && $order->total_points > 0) {
+            $this->pointService->credit(
+                $order->user_id,
+                (int) $order->total_points,
+                'adjust',
+                Order::class,
+                (string) $order->id,
+                'استرداد نقاط طلب لم يُستلم'
+            );
+        }
+
+        $order->loadMissing('items');
+        $requiredStock = $order->items
+            ->groupBy('book_ISBN')
+            ->map(fn ($items) => (int) $items->sum('count'));
+
+        $books = Book::whereIn('ISBN', $requiredStock->keys())
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('ISBN');
+
+        foreach ($requiredStock as $isbn => $count) {
+            $book = $books->get($isbn);
+            if ($book && $count > 0) {
+                $book->increment('amount', $count);
+            }
         }
     }
 
@@ -178,6 +258,25 @@ class OrderService
                 'price_once' => $book->price,
                 'count' => $item['count'],
             ]);
+        }
+    }
+
+    private function assertValidTransition(?string $from, string $to): void
+    {
+        if ($from === $to) {
+            return;
+        }
+
+        $allowed = [
+            'pending' => ['confirmed', 'cancelled', 'rejected'],
+            'confirmed' => ['delivered', 'cancelled'],
+            'delivered' => [],
+            'cancelled' => [],
+            'rejected' => [],
+        ];
+
+        if (! in_array($to, $allowed[$from] ?? [], true)) {
+            throw new \Exception('لا يمكن تغيير حالة الطلب من '.($from ?: 'غير معروفة').' إلى '.$to);
         }
     }
 

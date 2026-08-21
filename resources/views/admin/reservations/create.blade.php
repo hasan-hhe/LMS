@@ -13,18 +13,19 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
+                    <p class="text-muted">الحجز لنسخة متاحة فقط، وحجز واحد لكل عضو. بعد التجهيز أمام 48 ساعة للاستلام، ثم يُسجَّل كاستعارة.</p>
                     <form id="reservationForm">
                         <div class="row">
                             <div class="col-md-6 form-group mb-3">
                                 <label>المستخدم *</label>
-                                <select name="user_id" id="user_id" class="form-control" required>
+                                <select name="user_id" id="user_id" class="form-control" data-remote="1" required>
                                     <option value="">اختر المستخدم</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
-                                <label>نسخة الكتاب *</label>
-                                <select name="book_instance_id" id="book_instance_id" class="form-control" required>
+                                <label>نسخة متاحة للحجز *</label>
+                                <select name="book_instance_id" id="book_instance_id" class="form-control" data-remote="1" required>
                                     <option value="">اختر نسخة الكتاب</option>
                                 </select>
                                 <div class="invalid-feedback"></div>

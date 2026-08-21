@@ -25,6 +25,7 @@ class Book extends Model
         'discription',
         'price',
         'price_points',
+        'borrow_points',
         'amount',
         'rate_avg',
         'cover_url',
@@ -35,6 +36,7 @@ class Book extends Model
     protected $casts = [
         'price' => 'float',
         'price_points' => 'integer',
+        'borrow_points' => 'integer',
         'rate_avg' => 'float',
         'amount' => 'integer',
     ];

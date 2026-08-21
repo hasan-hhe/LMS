@@ -13,6 +13,12 @@ class DigitalAssetResource extends JsonResource
         $canAccess = $this->isAccessibleBy($user);
 
         return [
+            'id' => $this->id,
+            'isbn' => $this->book_ISBN,
+            'book' => $this->whenLoaded('book', fn () => $this->book ? [
+                'isbn' => $this->book->ISBN,
+                'title' => $this->book->title,
+            ] : null),
             'has_digital' => true,
             'has_pdf' => $this->hasPdf(),
             'has_audio' => $this->hasAudio(),

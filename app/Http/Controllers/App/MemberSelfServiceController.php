@@ -6,6 +6,7 @@ use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Borrowing\ExtendBorrowingRequest;
 use App\Http\Requests\Points\RedeemTopUpCodeRequest;
+use App\Http\Resources\BorrowingResource;
 use App\Http\Resources\LateFineResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\PointBalanceResource;
@@ -18,6 +19,7 @@ use App\Models\OrderState;
 use App\Models\Reservation;
 use App\Services\BorrowingService;
 use App\Services\FineService;
+use App\Services\MembershipService;
 use App\Services\OrderService;
 use App\Services\PointService;
 use App\Services\ReservationService;
@@ -34,6 +36,7 @@ class MemberSelfServiceController extends Controller
         private ReservationService $reservationService,
         private OrderService $orderService,
         private BorrowingService $borrowingService,
+        private MembershipService $membershipService,
     ) {}
 
     public function balance(Request $request)
@@ -82,10 +85,46 @@ class MemberSelfServiceController extends Controller
         $borrowings = $query->orderByDesc('id')->paginate(15);
 
         return ResponseHelper::success([
-            'items' => $borrowings->items(),
-            'data' => $borrowings->items(),
+            'items' => BorrowingResource::collection($borrowings->items()),
+            'data' => BorrowingResource::collection($borrowings->items()),
             'meta' => $this->paginationMeta($borrowings),
         ], 'تم جلب الاستعارات بنجاح');
+    }
+
+    public function quoteExtension(Request $request, int $id)
+    {
+        if (! Borrowing::whereKey($id)->where('member_id', $request->user()->id)->exists()) {
+            return ResponseHelper::notFound('الاستعارة غير موجودة');
+        }
+
+        try {
+            return ResponseHelper::success(
+                $this->borrowingService->quoteExtension($id, $request->input('new_end_date')),
+                'تم حساب تكلفة التمديد'
+            );
+        } catch (\Throwable $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
+    }
+
+    public function membership(Request $request)
+    {
+        return ResponseHelper::success(
+            $this->membershipService->status($request->user()),
+            'تم جلب حالة العضوية'
+        );
+    }
+
+    public function subscribeMembership(Request $request)
+    {
+        try {
+            return ResponseHelper::success(
+                $this->membershipService->subscribe($request->user()),
+                'تم تفعيل أو تمديد العضوية بنجاح'
+            );
+        } catch (\Throwable $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
     }
 
     public function extend(ExtendBorrowingRequest $request, int $id)
@@ -123,7 +162,12 @@ class MemberSelfServiceController extends Controller
         }
 
         try {
-            return ResponseHelper::success(new LateFineResource($this->fineService->payFine($id)), 'تم دفع الغرامة بالنقاط بنجاح');
+            $fine = $this->fineService->payFine($id);
+            $message = $fine->is_paid
+                ? 'تم دفع الغرامة بالنقاط بنجاح'
+                : 'تم خصم المتوفر من رصيدك، ويتبقى جزء من الغرامة حتى الشحن أو الدفع نقداً في المكتبة';
+
+            return ResponseHelper::success(new LateFineResource($fine), $message);
         } catch (\Throwable $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }
@@ -157,10 +201,10 @@ class MemberSelfServiceController extends Controller
         ]);
         if (empty($data['book_instance_id'])) {
             $instance = BookInstance::where('book_ISBN', $data['isbn'])
-                ->orderByRaw("CASE WHEN state_id IN (SELECT id FROM instance_states WHERE state = 'available') THEN 0 ELSE 1 END")
+                ->whereHas('state', fn ($query) => $query->where('state', 'available'))
                 ->first();
             if (! $instance) {
-                return ResponseHelper::notFound('لا توجد نسخة لهذا الكتاب');
+                return ResponseHelper::error('لا توجد نسخة متاحة للحجز لهذا الكتاب', 422);
             }
             $data['book_instance_id'] = $instance->id;
         }
@@ -187,7 +231,15 @@ class MemberSelfServiceController extends Controller
 
     public function orders(Request $request)
     {
-        $orders = $this->orderService->listOrders(['user_id' => $request->user()->id]);
+        $filters = ['user_id' => $request->user()->id];
+        $status = $request->input('status');
+        if (is_string($status) && $status !== '') {
+            $state = OrderState::where('state', $status)->first();
+            if ($state) {
+                $filters['state_id'] = $state->id;
+            }
+        }
+        $orders = $this->orderService->listOrders($filters);
 
         return ResponseHelper::success([
             'items' => OrderResource::collection($orders->items()),

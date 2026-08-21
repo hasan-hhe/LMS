@@ -47,22 +47,38 @@
     }
 
     function fillUsersSelect() {
-        return LmsApi.getMembers({ per_page: 200 }).then(function (res) {
-            LmsHelpers.fillSelect('#user_id', res.data, 'id', function (member) {
+        LmsHelpers.initRemoteSelect('#user_id', {
+            placeholder: 'اختر المستخدم',
+            valueKey: 'id',
+            labelFn: function (member) {
                 return (member.full_name || '') + ' (' + (member.email || '') + ')';
-            });
+            },
+            fetchFn: function (query) {
+                return LmsApi.getMembers({ search: query, per_page: 30 }).then(LmsHelpers.extractItems);
+            },
         });
+        return Promise.resolve();
     }
 
     function fillBookInstancesSelect() {
-        return LmsApi.getBookInstances({ per_page: 200 }).then(function (res) {
-            LmsHelpers.fillSelect('#book_instance_id', res.data, 'id', function (instance) {
+        LmsHelpers.initRemoteSelect('#book_instance_id', {
+            placeholder: 'اختر نسخة الكتاب',
+            valueKey: 'id',
+            labelFn: function (instance) {
                 const title = instance.book?.title || 'نسخة';
                 const isbn = instance.book?.isbn ? ' (' + instance.book.isbn + ')' : '';
                 const stateLabel = instance.state?.state || '-';
                 return title + isbn + ' - ' + stateLabel;
-            });
+            },
+            fetchFn: function (query) {
+                return LmsApi.getBookInstances({ search: query, per_page: 30 }).then(function (res) {
+                    return LmsHelpers.extractItems(res).filter(function (instance) {
+                        return instance.state?.state === 'available';
+                    });
+                });
+            },
         });
+        return Promise.resolve();
     }
 
     function initReservationForm() {
@@ -122,7 +138,7 @@
                 const id = $(this).data('id');
                 LmsHelpers.withBusy(btn, function () {
                     return LmsApi.fulfillReservation(id).then(function (res) {
-                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم تسليم الحجز وتسجيل الاستعارة'));
                         loadReservationsList({ page: 1 });
                     }).catch(LmsHelpers.handleApiError);
                 });

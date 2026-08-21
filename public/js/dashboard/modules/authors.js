@@ -64,10 +64,7 @@
             const request = id ? LmsApi.updateAuthor(id, data) : LmsApi.createAuthor(data);
 
             return request.then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                setTimeout(function () {
-                    window.location.href = indexUrl;
-                }, 500);
+                LmsHelpers.afterFormSave(res, { isEdit: !!id, indexUrl: indexUrl });
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#authorForm');
             });

@@ -9,6 +9,7 @@ use App\Http\Requests\Points\UpdatePointSettingsRequest;
 use App\Http\Resources\PointBalanceResource;
 use App\Http\Resources\PointTransactionResource;
 use App\Models\User;
+use App\Services\FineService;
 use App\Services\PointService;
 use App\Services\PointSettingService;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,11 @@ use Illuminate\Http\Request;
 
 class PointController extends Controller
 {
-    public function __construct(private PointService $points, private PointSettingService $settings) {}
+    public function __construct(
+        private PointService $points,
+        private PointSettingService $settings,
+        private FineService $fineService,
+    ) {}
 
     public function balance(Request $request): JsonResponse
     {
@@ -47,6 +52,9 @@ class PointController extends Controller
                 throw new \Exception('العضو غير موجود');
             }
             $transaction = $this->points->adjust((int) $request->member_id, (int) $request->points, $request->note, (int) $request->user()->id);
+            if ((int) $request->points > 0) {
+                $this->fineService->settleUnpaidFinesFromBalance((int) $request->member_id);
+            }
 
             return ResponseHelper::success(new PointTransactionResource($transaction), 'تم تعديل رصيد النقاط');
         } catch (\Exception $e) {
@@ -66,7 +74,7 @@ class PointController extends Controller
                 $this->settings->update($key, $value);
             }
 
-            return ResponseHelper::success($this->settings->getAll()->pluck('value', 'key'), 'تم تحديث إعدادات النقاط');
+            return ResponseHelper::success($this->settings->getAll()->pluck('value', 'key'), 'تم تحديث الإعدادات العامة');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }

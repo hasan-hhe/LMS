@@ -3,13 +3,14 @@
 namespace App\Notifications;
 
 use App\Models\TopUpCode;
+use App\Notifications\Concerns\BrandedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class PointsTopUpNotification extends Notification
 {
-    use Queueable;
+    use BrandedMail, Queueable;
 
     public function __construct(public TopUpCode $topUpCode) {}
 
@@ -20,7 +21,7 @@ class PointsTopUpNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return $this->mail()
             ->subject('تم شحن رصيد النقاط')
             ->greeting('مرحباً '.$notifiable->fullName())
             ->line('تمت إضافة '.$this->topUpCode->points_value.' نقطة إلى رصيدك.');

@@ -11,6 +11,10 @@ class DigitalAssetFileController extends Controller
 {
     public function show(string $isbn, string $type): StreamedResponse
     {
+        if (! in_array($type, ['pdf', 'audio'], true)) {
+            abort(404, 'الملف غير موجود');
+        }
+
         $asset = DigitalAsset::query()->with('book')->where('book_ISBN', $isbn)->first();
         $path = $asset?->storedPath($type);
         if (! $asset || ! $path || ! Storage::disk(DigitalAsset::DISK)->exists($path)) {

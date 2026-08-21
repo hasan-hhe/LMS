@@ -17,7 +17,7 @@
                         <div class="row">
                             <div class="col-md-6 form-group mb-3">
                                 <label>المستخدم *</label>
-                                <select name="user_id" id="user_id" class="form-control" required>
+                                <select name="user_id" id="user_id" class="form-control" data-remote="1" required>
                                     <option value="">اختر المستخدم...</option>
                                 </select>
                                 <div class="invalid-feedback"></div>

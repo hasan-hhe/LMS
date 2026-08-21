@@ -29,6 +29,9 @@ class UpsertDigitalAssetRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'book_ISBN' => $this->route('isbn')
+                ? 'sometimes|string|exists:books,ISBN'
+                : 'required|string|exists:books,ISBN',
             'pdf' => 'sometimes|nullable|file|mimetypes:application/pdf|max:51200',
             'audio' => 'sometimes|nullable|file|mimetypes:audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/x-aac|max:102400',
             'is_free' => 'sometimes|boolean',
@@ -40,7 +43,7 @@ class UpsertDigitalAssetRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $isbn = (string) $this->route('isbn');
+            $isbn = (string) ($this->route('isbn') ?: $this->input('book_ISBN'));
             $exists = DigitalAsset::query()->where('book_ISBN', $isbn)->exists();
             if ($exists) {
                 return;

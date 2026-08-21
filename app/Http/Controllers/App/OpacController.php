@@ -6,10 +6,13 @@ use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DigitalAssetResource;
 use App\Models\Book;
+use App\Services\ReviewService;
 use Illuminate\Http\Request;
 
 class OpacController extends Controller
 {
+    public function __construct(private ReviewService $reviews) {}
+
     public function index(Request $request)
     {
         $this->authenticateOptional($request);
@@ -84,9 +87,17 @@ class OpacController extends Controller
                 'instances as available_count' => fn ($q) => $q->whereHas('state', fn ($state) => $state->where('state', 'available')),
             ])->find($ISBN);
 
-        return $book
-            ? ResponseHelper::success($this->publicBook($book, $request), 'تم جلب الكتاب بنجاح')
-            : ResponseHelper::notFound('الكتاب غير موجود');
+        if (! $book) {
+            return ResponseHelper::notFound('الكتاب غير موجود');
+        }
+
+        $payload = $this->publicBook($book, $request);
+        $user = $request->user();
+        $payload['can_review'] = $user
+            ? $this->reviews->canReview((int) $user->id, $book->ISBN)
+            : false;
+
+        return ResponseHelper::success($payload, 'تم جلب الكتاب بنجاح');
     }
 
     private function publicBook(Book $book, Request $request): array
@@ -101,6 +112,8 @@ class OpacController extends Controller
             'available_copies' => $book->available_count,
             'price_syp' => $book->price,
             'price_points' => $book->price_points,
+            'borrow_points' => (int) ($book->borrow_points ?? 0),
+            'has_borrow_points' => (int) ($book->borrow_points ?? 0) > 0,
             'rate_avg' => $book->rate_avg,
             'rating' => $book->rate_avg,
             'published_at' => $book->year_of_publishing

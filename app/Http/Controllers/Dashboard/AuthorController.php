@@ -26,7 +26,7 @@ class AuthorController extends Controller
                 });
             }
 
-            $authors = $query->paginate(15);
+            $authors = $query->paginate(ResponseHelper::perPage($request));
             return ResponseHelper::paginated(AuthorResource::collection($authors), 'تم جلب قائمة المؤلفين');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);

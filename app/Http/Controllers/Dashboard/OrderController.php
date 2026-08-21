@@ -59,7 +59,13 @@ class OrderController extends Controller
     {
         try {
             $order = $this->orderService->updateOrderState($id, $request->state_id);
-            return ResponseHelper::success(new OrderResource($order), 'تم تحديث حالة الطلب بنجاح');
+            $message = match ($order->state?->state) {
+                'confirmed' => 'تم تأكيد الطلب وخصم النقاط. بانتظار استلام العضو من المكتبة',
+                'delivered' => 'تم تسليم الطلب للعضو',
+                default => 'تم تحديث حالة الطلب بنجاح',
+            };
+
+            return ResponseHelper::success(new OrderResource($order), $message);
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }

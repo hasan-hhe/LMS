@@ -14,6 +14,7 @@ class OrderResource extends JsonResource
             'total_prices' => $this->total_prices,
             'total_points' => $this->total_points,
             'total_amount' => $this->total_amount,
+            'pickup_expires_at' => $this->pickup_expires_at?->toDateTimeString(),
             'state' => $this->whenLoaded('state', fn () => [
                 'id' => $this->state->id,
                 'state' => $this->state->state,

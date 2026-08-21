@@ -16,12 +16,14 @@ class Order extends Model
         'total_prices',
         'total_points',
         'total_amount',
+        'pickup_expires_at',
     ];
 
     protected $casts = [
         'total_prices' => 'float',
         'total_points' => 'integer',
         'total_amount' => 'integer',
+        'pickup_expires_at' => 'datetime',
     ];
 
     public function user()

@@ -22,10 +22,10 @@
                             <input type="text" id="searchBooks" class="form-control" placeholder="بحث بالعنوان أو ISBN...">
                         </div>
                         <div class="col-md-3">
-                            <select id="filterCategory" class="form-control"><option value="">كل التصنيفات</option></select>
+                            <select id="filterCategory" class="form-control" data-remote="1"><option value="">كل التصنيفات</option></select>
                         </div>
                         <div class="col-md-3">
-                            <select id="filterAuthor" class="form-control"><option value="">كل المؤلفين</option></select>
+                            <select id="filterAuthor" class="form-control" data-remote="1"><option value="">كل المؤلفين</option></select>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -38,6 +38,9 @@
                                     <th>المؤلف</th>
                                     <th>التصنيف</th>
                                     <th>سعر النقاط</th>
+                                    <th>نقاط الاستعارة</th>
+                                    <th>بيع</th>
+                                    <th>استعارة</th>
                                     <th>السنة</th>
                                     <th>الإجراءات</th>
                                 </tr>

@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class TopUpCodeService
 {
-    public function __construct(private PointService $pointService) {}
+    public function __construct(private PointService $pointService, private FineService $fineService) {}
 
     public function generateBatch(int $count, int $pointsValue, ?string $expiresAt, ?int $userId, int $createdBy): array
     {
@@ -63,6 +63,12 @@ class TopUpCodeService
             User::find($userId)?->notify(new PointsTopUpNotification($topUp));
         } catch (\Throwable $notificationError) {
             report($notificationError);
+        }
+
+        try {
+            $this->fineService->settleUnpaidFinesFromBalance($userId);
+        } catch (\Throwable $settleError) {
+            report($settleError);
         }
 
         return $topUp;

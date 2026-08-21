@@ -20,6 +20,7 @@ class ExtendBorrowingRequest extends FormRequest
         return [
             'new_end_date' => 'required|date|after:today',
             'cause' => 'nullable|string|max:255',
+            'administrative' => 'sometimes|boolean',
         ];
     }
 

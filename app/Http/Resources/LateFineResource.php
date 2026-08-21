@@ -11,11 +11,14 @@ class LateFineResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'type' => $this->type ?: 'late',
             'days_late' => $this->days_late,
             'fine' => $this->fine,
             'fine_points' => $this->fine_points,
+            'accrued_until' => $this->accrued_until?->toDateString(),
             'is_paid' => $this->is_paid,
             'paid_at' => $this->paid_at?->toDateTimeString(),
+            'paid_via' => $this->paid_via,
             'borrowing' => $this->whenLoaded('borrowing', fn () => [
                 'id' => $this->borrowing->id,
                 'start_date' => $this->borrowing->start_date?->toDateString(),

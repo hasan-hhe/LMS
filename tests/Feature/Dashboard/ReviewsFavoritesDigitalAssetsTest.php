@@ -4,8 +4,14 @@ namespace Tests\Feature\Dashboard;
 
 use App\Models\Author;
 use App\Models\Book;
+use App\Models\BookInstance;
+use App\Models\Borrowing;
 use App\Models\Category;
 use App\Models\DigitalAsset;
+use App\Models\InstanceState;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\OrderState;
 use App\Models\Publisher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,33 +56,62 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
         ]);
     }
 
-    public function test_member_can_create_review_and_book_average_is_recalculated(): void
+    public function test_member_cannot_review_without_return_or_purchase(): void
     {
-        $response = $this->actingAs($this->member)
+        $this->actingAs($this->member)
             ->postJson('/api/v1/member/reviews', [
                 'isbn' => $this->book->ISBN,
                 'rate' => 4,
                 'comment' => 'كتاب ممتاز',
-            ]);
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('body', 'يمكن التقييم فقط بعد إعادة الكتاب من الاستعارة أو بعد شراء الكتاب');
+    }
 
-        $response->assertOk()->assertJsonPath('data.rate', 4);
+    public function test_member_can_review_once_after_returning_a_borrowing(): void
+    {
+        $this->markBookReturnedForMember();
+
+        $this->actingAs($this->member)
+            ->postJson('/api/v1/member/reviews', [
+                'isbn' => $this->book->ISBN,
+                'rate' => 4,
+                'comment' => 'كتاب ممتاز',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.rate', 4);
 
         $this->actingAs($this->member)
             ->postJson('/api/v1/member/reviews', [
                 'isbn' => $this->book->ISBN,
                 'rate' => 2,
-                'comment' => 'تم تحديث التقييم',
+                'comment' => 'محاولة ثانية',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('body', 'لقد قيّمت هذا الكتاب مسبقاً');
+
+        $this->assertDatabaseCount('reviews', 1);
+        $this->assertSame(4.0, $this->book->fresh()->rate_avg);
+    }
+
+    public function test_member_can_review_after_purchasing_the_book(): void
+    {
+        $this->markBookPurchasedForMember();
+
+        $this->actingAs($this->member)
+            ->postJson('/api/v1/member/reviews', [
+                'isbn' => $this->book->ISBN,
+                'rate' => 5,
+                'comment' => 'بعد الشراء',
             ])
             ->assertOk()
-            ->assertJsonPath('data.rate', 2);
+            ->assertJsonPath('data.rate', 5);
 
         $this->assertDatabaseHas('reviews', [
             'user_id' => $this->member->id,
             'book_ISBN' => $this->book->ISBN,
-            'rate' => 2,
+            'rate' => 5,
         ]);
-        $this->assertDatabaseCount('reviews', 1);
-        $this->assertSame(2.0, $this->book->fresh()->rate_avg);
     }
 
     public function test_member_can_add_and_remove_favorite(): void
@@ -229,6 +264,8 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
 
     public function test_staff_can_list_and_delete_reviews(): void
     {
+        $this->markBookReturnedForMember();
+
         $this->actingAs($this->member)
             ->postJson('/api/v1/member/reviews', [
                 'isbn' => $this->book->ISBN,
@@ -246,5 +283,46 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('reviews', ['id' => $reviewId]);
+    }
+
+    private function markBookReturnedForMember(): void
+    {
+        $available = InstanceState::firstOrCreate(['state' => 'available']);
+        $instance = BookInstance::create([
+            'book_ISBN' => $this->book->ISBN,
+            'state_id' => $available->id,
+            'condition' => 'new',
+        ]);
+
+        Borrowing::create([
+            'member_id' => $this->member->id,
+            'librarian_id' => $this->admin->id,
+            'book_instance_id' => $instance->id,
+            'start_date' => now()->subDays(10)->toDateString(),
+            'end_date' => now()->subDays(3)->toDateString(),
+            'due_date' => now()->subDays(3)->toDateString(),
+            'returned_at' => now()->subDay(),
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+    }
+
+    private function markBookPurchasedForMember(): void
+    {
+        $confirmed = OrderState::firstOrCreate(['state' => 'confirmed']);
+        $order = Order::create([
+            'user_id' => $this->member->id,
+            'state_id' => $confirmed->id,
+            'total_prices' => 100,
+            'total_points' => 10,
+            'total_amount' => 1,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'book_ISBN' => $this->book->ISBN,
+            'price_once' => 100,
+            'count' => 1,
+        ]);
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\App\Auth\AuthController;
 use App\Http\Controllers\App\BooksController;
+use App\Http\Controllers\App\DigitalAssetFileController;
 use App\Http\Controllers\App\FavoriteController;
 use App\Http\Controllers\App\MemberController;
 use App\Http\Controllers\App\MemberDashboardController;
@@ -29,6 +30,7 @@ Route::prefix('v1/auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']); // DONE
         Route::get('/me', [AuthController::class, 'me']); // done
+        Route::put('/profile', [AuthController::class, 'updateProfile']);
     });
 });
 
@@ -36,6 +38,11 @@ Route::prefix('v1/opac/books')->group(function () {
     Route::get('/', [OpacController::class, 'index']);
     Route::get('/{ISBN}', [OpacController::class, 'show']);
 });
+
+Route::get('v1/books/{isbn}/digital/{type}', [DigitalAssetFileController::class, 'show'])
+    ->middleware('signed')
+    ->name('digital.file')
+    ->where('type', 'pdf|audio');
 
 /*
 |--------------------------------------------------------------------------
@@ -85,7 +92,11 @@ Route::prefix('v1/member')
         Route::post('/points/top-up', 'topUp');
 
         Route::get('/borrowings', 'borrowings');
+        Route::get('/borrowings/{id}/extension-quote', 'quoteExtension');
         Route::put('/borrowings/{id}/extend', 'extend');
+
+        Route::get('/membership', 'membership');
+        Route::post('/membership/subscribe', 'subscribeMembership');
 
         Route::get('/fines', 'fines');
         Route::put('/fines/{id}/pay', 'payFine');

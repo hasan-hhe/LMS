@@ -48,7 +48,7 @@ class BorrowingController extends Controller
         }
 
         try {
-            $borrowing = $this->borrowingService->returnBook($id);
+            $borrowing = $this->borrowingService->returnBook($id, $request->only('outcome'));
             return ResponseHelper::success(new BorrowingResource($borrowing), 'تم إعادة الكتاب بنجاح');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);

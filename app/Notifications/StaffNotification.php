@@ -2,13 +2,14 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\BrandedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class StaffNotification extends Notification
 {
-    use Queueable;
+    use BrandedMail, Queueable;
 
     public function __construct(
         public string $title,
@@ -30,7 +31,7 @@ class StaffNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return $this->mail()
             ->subject($this->title)
             ->greeting('مرحباً '.$notifiable->fullName())
             ->line($this->body);

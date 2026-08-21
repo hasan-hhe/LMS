@@ -236,7 +236,248 @@
         },
 
         formToFormData(form) {
-            return new FormData(form);
+            const formData = new FormData(form);
+            Array.from(formData.entries()).forEach(function (entry) {
+                const key = entry[0];
+                const value = entry[1];
+                if (value instanceof File && !value.name && value.size === 0) {
+                    formData.delete(key);
+                }
+            });
+            return formData;
+        },
+
+        afterFormSave(res, options) {
+            options = options || {};
+            LmsHelpers.notify('success', LmsHelpers.responseMessage(res, options.fallback));
+            if (!options.isEdit && options.indexUrl) {
+                setTimeout(function () {
+                    window.location.href = options.indexUrl;
+                }, 400);
+            }
+        },
+
+        extractItems(res) {
+            if (Array.isArray(res?.data)) return res.data;
+            if (Array.isArray(res?.data?.data)) return res.data.data;
+            return [];
+        },
+
+        extractMeta(res, items) {
+            return res?.meta || res?.data?.meta || {
+                current_page: 1,
+                last_page: 1,
+                per_page: (items || []).length || 15,
+                total: (items || []).length,
+            };
+        },
+
+        destroyDataTable(table) {
+            const $table = table && table.jquery ? table : $(table);
+            if (!$table.length || !$.fn.DataTable || !$.fn.DataTable.isDataTable($table[0])) {
+                return;
+            }
+            $table.DataTable().destroy();
+            $table.removeClass('dataTable no-footer');
+        },
+
+        guessFileType(accept, url, file) {
+            const source = ((accept || '') + ' ' + (file?.type || '') + ' ' + (url || '') + ' ' + (file?.name || '')).toLowerCase();
+            if (source.indexOf('image') !== -1 || /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/.test(source)) {
+                return 'image';
+            }
+            if (source.indexOf('pdf') !== -1 || /\.pdf(\?|$)/.test(source)) {
+                return 'pdf';
+            }
+            if (source.indexOf('audio') !== -1 || /\.(mp3|wav|ogg|m4a|aac)(\?|$)/.test(source)) {
+                return 'audio';
+            }
+            return 'file';
+        },
+
+        previewButtonLabel(type) {
+            if (type === 'image') return 'عرض الصورة';
+            if (type === 'pdf') return 'عرض الملف';
+            if (type === 'audio') return 'عرض الملف';
+            return 'عرض الملف';
+        },
+
+        showFilePreview(options) {
+            options = options || {};
+            const file = options.file;
+            const url = options.url;
+            if (!file && !url) {
+                LmsHelpers.notify('error', 'لا يوجد ملف للعرض');
+                return;
+            }
+
+            const type = options.type || this.guessFileType('', url, file);
+            const objectUrl = file ? URL.createObjectURL(file) : url;
+            const $modal = $('#lmsFilePreviewModal');
+            const $body = $('#lmsFilePreviewBody');
+            const $title = $('#lmsFilePreviewTitle');
+
+            if (!$modal.length) {
+                window.open(objectUrl, '_blank');
+                return;
+            }
+
+            $title.text(options.title || this.previewButtonLabel(type));
+            $body.empty();
+
+            if (type === 'image') {
+                $body.html('<img src="' + objectUrl + '" alt="معاينة" class="img-fluid rounded">');
+            } else if (type === 'pdf') {
+                $body.html('<iframe src="' + objectUrl + '" title="معاينة الملف" style="width:100%;min-height:70vh;border:0;"></iframe>');
+            } else if (type === 'audio') {
+                $body.html('<audio controls src="' + objectUrl + '" class="w-100"></audio>');
+            } else {
+                $body.html('<a href="' + objectUrl + '" target="_blank" rel="noopener" class="btn btn-primary">فتح الملف</a>');
+            }
+
+            const modal = bootstrap.Modal.getOrCreateInstance($modal[0]);
+            $modal.off('hidden.bs.modal.lmsPreview').on('hidden.bs.modal.lmsPreview', function () {
+                if (file) {
+                    URL.revokeObjectURL(objectUrl);
+                }
+            });
+            modal.show();
+        },
+
+        enhanceFileInputs(root) {
+            const scope = root ? $(root) : $(document);
+            scope.find('input[type="file"]').each(function () {
+                const input = this;
+                if (input.dataset.previewReady === '1') return;
+                input.dataset.previewReady = '1';
+
+                const $input = $(input);
+                if (!$input.closest('.input-group').length) {
+                    $input.wrap('<div class="input-group lms-file-input-group"></div>');
+                }
+
+                const type = LmsHelpers.guessFileType(input.accept, input.dataset.currentUrl);
+                const $group = $input.closest('.input-group');
+                if (!$group.find('.btn-preview-file').length) {
+                    $group.append(
+                        '<button type="button" class="btn btn-outline-secondary btn-preview-file">' +
+                        LmsHelpers.previewButtonLabel(type) +
+                        '</button>'
+                    );
+                }
+
+                $group.find('.btn-preview-file').off('click.lmsPreview').on('click.lmsPreview', function () {
+                    const currentType = LmsHelpers.guessFileType(input.accept, input.dataset.currentUrl, input.files?.[0]);
+                    LmsHelpers.showFilePreview({
+                        type: currentType,
+                        file: input.files?.[0] || null,
+                        url: input.dataset.currentUrl || '',
+                    });
+                });
+            });
+        },
+
+        setFileCurrentUrl(selector, url) {
+            const input = $(selector)[0];
+            if (!input) return;
+            if (url) {
+                input.dataset.currentUrl = url;
+            } else {
+                delete input.dataset.currentUrl;
+            }
+        },
+
+        getChoicesInstance(selector) {
+            const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+            return el && el.choicesInstance ? el.choicesInstance : null;
+        },
+
+        initChoices(selector, extraConfig) {
+            const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+            if (!el || typeof Choices === 'undefined') return null;
+
+            if (el.choicesInstance) {
+                el.choicesInstance.destroy();
+                el.choicesInstance = null;
+            }
+
+            const instance = new Choices(el, Object.assign({
+                searchEnabled: true,
+                shouldSort: false,
+                itemSelectText: '',
+                searchPlaceholderValue: 'ابحث...',
+                noResultsText: 'لا توجد نتائج',
+                noChoicesText: 'لا توجد خيارات',
+                removeItemButton: !!el.multiple,
+                allowHTML: false,
+            }, extraConfig || {}));
+
+            el.choicesInstance = instance;
+            return instance;
+        },
+
+        enhanceSelects(root) {
+            const scope = root ? $(root) : $(document);
+            scope.find('select').each(function () {
+                if (this.dataset.remote === '1' || this.dataset.choices === '0' || this.dataset.previewReady === '1') {
+                    return;
+                }
+                if (this.choicesInstance) return;
+                LmsHelpers.initChoices(this);
+            });
+        },
+
+        initRemoteSelect(selector, options) {
+            options = options || {};
+            const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+            if (!el) return null;
+            el.dataset.remote = '1';
+
+            const placeholder = options.placeholder || ($(el).find('option:first').text() || 'اختر');
+            const choices = this.initChoices(el, {
+                searchPlaceholderValue: 'ابحث...',
+                noResultsText: 'لا توجد نتائج',
+            });
+
+            const mapItems = function (items) {
+                const mapped = [{
+                    value: '',
+                    label: placeholder,
+                    selected: !options.selectedValue,
+                    disabled: !el.multiple,
+                }];
+                (items || []).forEach(function (item) {
+                    const value = String(typeof options.valueKey === 'function' ? options.valueKey(item) : item[options.valueKey]);
+                    mapped.push({
+                        value: value,
+                        label: typeof options.labelFn === 'function' ? options.labelFn(item) : item[options.labelFn],
+                        selected: options.selectedValue !== undefined && options.selectedValue !== null
+                            && String(options.selectedValue) === value,
+                    });
+                });
+                return mapped;
+            };
+
+            const load = function (query) {
+                return options.fetchFn(query || '').then(function (items) {
+                    if (!choices) {
+                        LmsHelpers.fillSelect(el, items, options.valueKey, options.labelFn, options.selectedValue);
+                        return items;
+                    }
+                    choices.setChoices(mapItems(items), 'value', 'label', true);
+                    return items;
+                });
+            };
+
+            load(options.initialQuery || '');
+
+            if (el && choices) {
+                el.addEventListener('search', LmsHelpers.debounce(function (event) {
+                    load(event.detail?.value || '');
+                }, 350));
+            }
+
+            return { choices: choices, reload: load };
         },
 
         debounce(fn, delay) {
@@ -267,11 +508,39 @@
 
         fillSelect(selector, items, valueKey, labelFn, selectedValue) {
             const $select = $(selector);
+            const el = $select[0];
+            const firstLabel = $select.find('option:first').text() || 'اختر';
+            const resolveValue = function (item) {
+                return typeof valueKey === 'function' ? valueKey(item) : item[valueKey];
+            };
+            const resolveLabel = function (item) {
+                return typeof labelFn === 'function' ? labelFn(item) : item[labelFn];
+            };
+
+            if (el && el.choicesInstance) {
+                const mapped = [{
+                    value: '',
+                    label: firstLabel,
+                    selected: selectedValue === undefined || selectedValue === null || selectedValue === '',
+                }];
+                (items || []).forEach(function (item) {
+                    const value = String(resolveValue(item));
+                    mapped.push({
+                        value: value,
+                        label: resolveLabel(item),
+                        selected: selectedValue !== undefined && selectedValue !== null && String(selectedValue) === value,
+                    });
+                });
+                el.choicesInstance.setChoices(mapped, 'value', 'label', true);
+                if (selectedValue !== undefined && selectedValue !== null && selectedValue !== '') {
+                    el.choicesInstance.setChoiceByValue(String(selectedValue));
+                }
+                return;
+            }
+
             $select.find('option:not(:first)').remove();
             (items || []).forEach(function (item) {
-                const value = item[valueKey];
-                const label = typeof labelFn === 'function' ? labelFn(item) : item[labelFn];
-                $select.append('<option value="' + value + '">' + label + '</option>');
+                $select.append('<option value="' + resolveValue(item) + '">' + resolveLabel(item) + '</option>');
             });
             if (selectedValue !== undefined && selectedValue !== null) {
                 $select.val(String(selectedValue));
@@ -314,14 +583,23 @@
                 return nextParams;
             };
 
-            const requestParams = resolveParams(params.page || 1);
+            const requestId = (options._requestId || 0) + 1;
+            options._requestId = requestId;
+
+            const requestParams = resolveParams((options.params && options.params.page) || params.page || 1);
             options.params = requestParams;
 
+            const $table = this.resolveTableElement(tableBodySelector, tableSelector);
+            this.destroyDataTable($table);
             this.showLoading(tableBodySelector);
 
             return apiCall(requestParams).then(function (res) {
-                const items = Array.isArray(res.data) ? res.data : [];
-                const meta = res.meta || {};
+                if (options._requestId !== requestId) {
+                    return res;
+                }
+
+                const items = LmsHelpers.extractItems(res);
+                const meta = LmsHelpers.extractMeta(res, items);
 
                 if (totalSelector) {
                     $(totalSelector).text('العدد: ' + (meta.total || items.length));
@@ -341,17 +619,15 @@
                 });
                 $(tableBodySelector).html(html);
 
-                const $table = LmsHelpers.resolveTableElement(tableBodySelector, tableSelector);
-                if ($table.length && typeof initDataTable === 'function') {
-                    initDataTable($table[0]);
-                }
-
                 LmsHelpers.renderPagination(meta, paginationSelector, function (page) {
                     options.params = resolveParams(page);
                     LmsHelpers.loadPaginatedTable(options);
                 });
                 return res;
             }).catch(function (error) {
+                if (options._requestId !== requestId) {
+                    return;
+                }
                 if (error && error.response) {
                     LmsHelpers.handleApiError(error);
                 } else if (error) {
@@ -366,7 +642,7 @@
             const debounced = this.debounce(function () {
                 callback($(inputSelector).val());
             }, 400);
-            $(inputSelector).on('keyup', debounced);
+            $(inputSelector).on('keyup input search', debounced);
         },
 
         resolveButton(target) {

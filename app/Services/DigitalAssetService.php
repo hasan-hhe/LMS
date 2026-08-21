@@ -9,6 +9,23 @@ use Illuminate\Support\Facades\DB;
 
 class DigitalAssetService
 {
+    public function list(array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        $query = DigitalAsset::query()->with('book')->latest('id');
+
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('book_ISBN', 'like', "%{$search}%")
+                    ->orWhereHas('book', fn ($book) => $book->where('title', 'like', "%{$search}%"));
+            });
+        }
+
+        $perPage = min(100, max(1, (int) ($filters['per_page'] ?? 15)));
+
+        return $query->paginate($perPage);
+    }
+
     public function upsert(string $isbn, array $data, ?UploadedFile $pdfFile = null, ?UploadedFile $audioFile = null): DigitalAsset
     {
         return DB::transaction(function () use ($isbn, $data, $pdfFile, $audioFile) {

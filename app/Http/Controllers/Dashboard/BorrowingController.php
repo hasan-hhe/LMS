@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Borrowing\ExtendBorrowingRequest;
+use App\Http\Requests\Borrowing\ReturnBorrowingRequest;
 use App\Http\Requests\Borrowing\StoreBorrowingRequest;
 use App\Http\Resources\BorrowingResource;
 use App\Repositories\Interfaces\BorrowingRepositoryInterface;
@@ -61,11 +62,18 @@ class BorrowingController extends Controller
         }
     }
 
-    public function returnBook(int $id): JsonResponse
+    public function returnBook(ReturnBorrowingRequest $request, int $id): JsonResponse
     {
         try {
-            $borrowing = $this->borrowingService->returnBook($id);
-            return ResponseHelper::success(new BorrowingResource($borrowing), 'تم إعادة الكتاب بنجاح');
+            $borrowing = $this->borrowingService->returnBook($id, $request->validated());
+            $outcome = $request->input('outcome', 'ok');
+            $message = match ($outcome) {
+                'damaged' => 'تم تسجيل الإرجاع مع غرامة إتلاف الكتاب',
+                'lost' => 'تم تسجيل الفقد مع غرامة بدل الكتاب',
+                default => 'تم إعادة الكتاب بنجاح',
+            };
+
+            return ResponseHelper::success(new BorrowingResource($borrowing), $message);
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }
@@ -74,8 +82,27 @@ class BorrowingController extends Controller
     public function extend(ExtendBorrowingRequest $request, int $id): JsonResponse
     {
         try {
-            $borrowing = $this->borrowingService->extendBorrowing($id, $request->validated());
-            return ResponseHelper::success(new BorrowingResource($borrowing), 'تم تمديد الاستعارة بنجاح');
+            $borrowing = $this->borrowingService->extendBorrowing(
+                $id,
+                $request->validated(),
+                $request->boolean('administrative')
+            );
+            return ResponseHelper::success(
+                new BorrowingResource($borrowing),
+                $request->boolean('administrative') ? 'تم التمديد الإداري بنجاح' : 'تم تمديد الاستعارة بنجاح'
+            );
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
+    }
+
+    public function quoteExtension(Request $request, int $id): JsonResponse
+    {
+        try {
+            return ResponseHelper::success(
+                $this->borrowingService->quoteExtension($id, $request->input('new_end_date')),
+                'تم حساب تكلفة التمديد'
+            );
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }

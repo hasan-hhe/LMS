@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/bootstrap.rtl.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/plugins.rtl.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/kaiadmin.rtl.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
 
     <style>
         :root {
@@ -103,6 +104,14 @@
         .bg-gradient-primary {
             background: linear-gradient(135deg, var(--lms-primary) 0%, var(--lms-primary-dark) 100%);
             min-height: 100vh;
+        }
+
+        .lms-file-input-group .btn-preview-file {
+            white-space: nowrap;
+        }
+
+        .choices {
+            margin-bottom: 0;
         }
 
         .libralms-login-logo {

@@ -32,6 +32,10 @@ class ReservationResource extends JsonResource
                     'title' => $this->bookInstance->book->title,
                 ] : null,
             ]),
+            'borrowing' => $this->when(
+                $this->relationLoaded('fulfilledBorrowing') && $this->fulfilledBorrowing,
+                fn () => new BorrowingResource($this->fulfilledBorrowing)
+            ),
         ];
     }
 }

@@ -6,23 +6,20 @@ use App\Models\BookInstance;
 use App\Models\Borrowing;
 use App\Models\BorrowingEdition;
 use App\Models\InstanceState;
-use App\Models\LateFine;
 use App\Models\Reservation;
-use App\Models\ReservationState;
 use App\Models\User;
 use App\Repositories\Interfaces\BorrowingRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
 class BorrowingService
 {
-    private const MAX_ACTIVE_BORROWINGS = 5;
-
-    private const FINE_PER_DAY = 0.5;
+    public const MAX_ACTIVE_BORROWINGS = 1;
 
     public function __construct(
         private BorrowingRepositoryInterface $borrowingRepository,
         private PointService $pointService,
-        private PointSettingService $pointSettingService
+        private PointSettingService $pointSettingService,
+        private FineService $fineService,
     ) {}
 
     public function checkoutBook(array $data, int $librarianId): Borrowing
@@ -30,30 +27,14 @@ class BorrowingService
         DB::beginTransaction();
         try {
             $member = $this->findAndValidateMember($data['member_id']);
-            $instance = $this->findAndValidateInstance($data['book_instance_id'], $member->id);
+            $instance = $this->findAvailableInstance($data['book_instance_id']);
 
             $this->validateMemberBorrowingLimit($member->id);
-            $this->validateMemberHasNoPendingFines($member->id);
+            $this->fineService->assertMemberHasNoUnpaidFines($member->id);
+            $this->assertMemberHasNoActiveReservation($member->id);
 
-            $borrowing = $this->borrowingRepository->create([
-                'member_id' => $member->id,
-                'librarian_id' => $librarianId,
-                'book_instance_id' => $instance->id,
-                'start_date' => now()->toDateString(),
-                'end_date' => $data['end_date'],
-                'due_date' => $data['end_date'],
-                'borrowing_cast' => $data['borrowing_cost'] ?? 0,
-                'is_paid' => false,
-            ]);
-
-            $costPoints = $this->pointService->sypToPoints((float) ($data['borrowing_cost'] ?? 0));
-            if ($costPoints > 0) {
-                $this->pointService->debit($member->id, $costPoints, 'spend', Borrowing::class, (string) $borrowing->id, 'تكلفة استعارة كتاب');
-                $borrowing->update(['is_paid' => true, 'paid_at' => now()]);
-            }
-
+            $borrowing = $this->createBorrowingRecord($member->id, $librarianId, $instance, $data);
             $this->markInstanceAsBorrowed($instance);
-            $this->fulfillMemberHold($member->id, $instance->id);
 
             DB::commit();
 
@@ -64,49 +45,97 @@ class BorrowingService
         }
     }
 
-    public function returnBook(int $borrowingId): Borrowing
+    public function checkoutFromReservation(Reservation $reservation, int $librarianId, ?string $endDate = null): Borrowing
+    {
+        $member = $this->findAndValidateMember($reservation->user_id);
+        $instance = $reservation->bookInstance;
+        if (! $instance) {
+            throw new \Exception('نسخة الكتاب غير موجودة');
+        }
+
+        $this->validateMemberBorrowingLimit($member->id);
+        $this->fineService->assertMemberHasNoUnpaidFines($member->id);
+
+        $state = $instance->state?->state;
+        if (! in_array($state, ['available', 'reserved'], true)) {
+            throw new \Exception('نسخة الكتاب غير متاحة للاستلام حالياً');
+        }
+
+        $data = [
+            'end_date' => $endDate ?: now()->addDays($this->pointSettingService->getLoanPeriodDays())->toDateString(),
+        ];
+
+        $borrowing = $this->createBorrowingRecord($member->id, $librarianId, $instance, $data);
+        $this->markInstanceAsBorrowed($instance);
+
+        return $borrowing->load(['member', 'librarian', 'bookInstance.book']);
+    }
+
+    public function returnBook(int $borrowingId, array $data = []): Borrowing
     {
         DB::beginTransaction();
         try {
             $borrowing = $this->findActiveBorrowing($borrowingId);
+            $outcome = $data['outcome'] ?? 'ok';
 
-            $this->releaseInstanceAfterReturn($borrowing->bookInstance);
-            $this->calculateAndSaveLateFine($borrowing);
-            
+            $this->fineService->accrueBorrowing($borrowing);
+
+            if (in_array($outcome, ['damaged', 'lost'], true)) {
+                $this->fineService->createReplacementFine($borrowing, $outcome === 'lost' ? 'loss' : 'damage');
+                $this->setInstanceState($borrowing->bookInstance, $outcome);
+            } else {
+                $this->releaseInstanceAfterReturn($borrowing->bookInstance);
+            }
+
             $borrowing->update(['returned_at' => now()]);
-            
+
+            $fresh = $borrowing->fresh(['member', 'bookInstance.book', 'lateFine', 'damageFine']);
+            if ($fresh && ! $fresh->lateFine && ! $fresh->damageFine && $outcome === 'ok') {
+                $reward = $this->pointSettingService->getRewardReturnOnTime();
+                if ($reward > 0) {
+                    $this->pointService->credit($borrowing->member_id, $reward, 'reward', Borrowing::class, (string) $borrowing->id, 'مكافأة إعادة الكتاب في الموعد');
+                }
+            }
+
             DB::commit();
 
-            return $borrowing->fresh(['member', 'bookInstance.book', 'lateFine']);
+            return $borrowing->fresh(['member', 'bookInstance.book', 'lateFine', 'damageFine']);
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
     }
 
-    public function extendBorrowing(int $borrowingId, array $data): Borrowing
+    public function extendBorrowing(int $borrowingId, array $data, bool $administrative = false): Borrowing
     {
         DB::beginTransaction();
         try {
             $borrowing = $this->findActiveBorrowing($borrowingId);
 
-            $this->validateExtensionEligibility($borrowing);
+            if (! $administrative) {
+                $this->validateExtensionEligibility($borrowing);
+                $this->fineService->assertMemberHasNoUnpaidFines($borrowing->member_id);
+            }
 
-            $extensionTax = $this->calculateExtensionTax($borrowing, $data['new_end_date']);
+            $extensionPoints = $administrative
+                ? 0
+                : $this->calculateExtensionPoints($borrowing, $data['new_end_date']);
 
             BorrowingEdition::create([
                 'borrowing_id' => $borrowing->id,
                 'new_end_date' => $data['new_end_date'],
-                'taxe' => $extensionTax,
-                'cause' => $data['cause'] ?? null,
+                'taxe' => $extensionPoints,
+                'cause' => $data['cause'] ?? ($administrative ? 'تمديد إداري' : null),
             ]);
 
-            $extensionPoints = $this->pointService->sypToPoints($extensionTax);
             if ($extensionPoints > 0) {
-                $this->pointService->debit($borrowing->member_id, $extensionPoints, 'spend', BorrowingEdition::class, (string) $borrowing->id, 'رسوم تمديد الاستعارة');
+                $this->pointService->debit($borrowing->member_id, $extensionPoints, 'spend', BorrowingEdition::class, (string) $borrowing->id, 'رسوم تمديد الاستعارة بالنقاط');
             }
 
-            $borrowing->update(['end_date' => $data['new_end_date']]);
+            $borrowing->update([
+                'end_date' => $data['new_end_date'],
+                'due_date' => $data['new_end_date'],
+            ]);
 
             DB::commit();
 
@@ -115,6 +144,69 @@ class BorrowingService
             DB::rollBack();
             throw $e;
         }
+    }
+
+    public function quoteExtension(int $borrowingId, ?string $newEndDate = null): array
+    {
+        $borrowing = Borrowing::with(['editions', 'bookInstance.book'])->find($borrowingId);
+        if (! $borrowing) {
+            throw new \Exception('الاستعارة غير موجودة');
+        }
+
+        $defaultEnd = $borrowing->end_date
+            ? $borrowing->end_date->copy()->addDays(7)->toDateString()
+            : now()->addDays(7)->toDateString();
+        $target = $newEndDate ?: $defaultEnd;
+        $points = $this->calculateExtensionPoints($borrowing, $target);
+        $alreadyExtended = $borrowing->editions()->exists();
+        $overdue = $borrowing->end_date?->isPast() ?? false;
+        $returned = $borrowing->isReturned();
+        $unpaidFines = $this->fineService->memberHasUnpaidFines($borrowing->member_id);
+
+        $canExtend = ! $returned && ! $overdue && ! $alreadyExtended && ! $unpaidFines;
+        $reason = null;
+        if ($returned) {
+            $reason = 'تم إعادة هذا الكتاب مسبقاً';
+        } elseif ($overdue) {
+            $reason = 'لا يمكن تمديد استعارة منتهية الصلاحية';
+        } elseif ($alreadyExtended) {
+            $reason = 'تم تمديد هذه الاستعارة مسبقاً. يمكن للأمين التمديد إدارياً';
+        } elseif ($unpaidFines) {
+            $reason = 'لدى العضو غرامة غير مدفوعة';
+        }
+
+        return [
+            'can_extend' => $canExtend,
+            'already_extended' => $alreadyExtended,
+            'points' => $points,
+            'days' => $this->extensionDays($borrowing, $target),
+            'new_end_date' => $target,
+            'reason' => $reason,
+        ];
+    }
+
+    private function createBorrowingRecord(int $memberId, int $librarianId, BookInstance $instance, array $data): Borrowing
+    {
+        $instance->loadMissing('book');
+        $borrowPoints = max(0, (int) ($instance->book?->borrow_points ?? 0));
+
+        $borrowing = $this->borrowingRepository->create([
+            'member_id' => $memberId,
+            'librarian_id' => $librarianId,
+            'book_instance_id' => $instance->id,
+            'start_date' => now()->toDateString(),
+            'end_date' => $data['end_date'],
+            'due_date' => $data['end_date'],
+            'borrowing_cast' => $borrowPoints,
+            'is_paid' => false,
+        ]);
+
+        if ($borrowPoints > 0) {
+            $this->pointService->debit($memberId, $borrowPoints, 'spend', Borrowing::class, (string) $borrowing->id, 'رسوم استعارة كتاب');
+            $borrowing->update(['is_paid' => true, 'paid_at' => now()]);
+        }
+
+        return $borrowing;
     }
 
     private function findAndValidateMember(int $memberId): User
@@ -130,41 +222,43 @@ class BorrowingService
         return $member;
     }
 
-    private function findAndValidateInstance(int $instanceId, int $memberId): BookInstance
+    private function findAvailableInstance(int $instanceId): BookInstance
     {
-        $instance = BookInstance::with('state')->find($instanceId);
+        $instance = BookInstance::with(['state', 'book'])->find($instanceId);
         if (! $instance) {
             throw new \Exception('نسخة الكتاب غير موجودة');
         }
 
         $state = $instance->state?->state;
-        if ($state === 'available') {
-            return $instance;
+        if ($state === 'borrowed') {
+            throw new \Exception('لا يمكن استعارة نسخة معارة حالياً');
+        }
+        if ($state === 'reserved') {
+            throw new \Exception('لا يمكن استعارة نسخة محجوزة. استخدم تسليم الحجز');
+        }
+        if ($state !== 'available') {
+            throw new \Exception('نسخة الكتاب غير متاحة للاستعارة حالياً');
         }
 
-        if ($state === 'reserved' && $this->memberHoldsReservation($memberId, $instanceId)) {
-            return $instance;
-        }
-
-        throw new \Exception('نسخة الكتاب غير متاحة للاستعارة حالياً');
+        return $instance;
     }
 
     private function validateMemberBorrowingLimit(int $memberId): void
     {
         $activeCount = $this->borrowingRepository->getActiveBorrowingsCount($memberId);
         if ($activeCount >= self::MAX_ACTIVE_BORROWINGS) {
-            throw new \Exception('وصل العضو للحد الأقصى للاستعارة ('.self::MAX_ACTIVE_BORROWINGS.' كتب)');
+            throw new \Exception('لا يمكن استعارة أكثر من نسخة واحدة قبل إعادة النسخة الحالية');
         }
     }
 
-    private function validateMemberHasNoPendingFines(int $memberId): void
+    private function assertMemberHasNoActiveReservation(int $memberId): void
     {
-        $unpaidFines = LateFine::whereHas('borrowing', fn ($q) => $q->where('member_id', $memberId))
-            ->where('is_paid', false)
+        $active = Reservation::where('user_id', $memberId)
+            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
             ->exists();
 
-        if ($unpaidFines) {
-            throw new \Exception('لدى العضو غرامات غير مدفوعة، يرجى تسويتها أولاً');
+        if ($active) {
+            throw new \Exception('لدى العضو حجز نشط. يرجى استلامه أو إلغاؤه قبل تسجيل استعارة جديدة');
         }
     }
 
@@ -180,30 +274,6 @@ class BorrowingService
             ->exists();
 
         $this->setInstanceState($instance, $held ? 'reserved' : 'available');
-    }
-
-    private function memberHoldsReservation(int $memberId, int $instanceId): bool
-    {
-        return Reservation::where('user_id', $memberId)
-            ->where('book_instance_id', $instanceId)
-            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
-            ->exists();
-    }
-
-    private function fulfillMemberHold(int $memberId, int $instanceId): void
-    {
-        $fulfilledState = ReservationState::where('state', 'fulfilled')->first();
-        if (! $fulfilledState) {
-            return;
-        }
-
-        Reservation::where('user_id', $memberId)
-            ->where('book_instance_id', $instanceId)
-            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
-            ->update([
-                'state_id' => $fulfilledState->id,
-                'notified_at' => now(),
-            ]);
     }
 
     private function setInstanceState(BookInstance $instance, string $stateName): void
@@ -227,31 +297,6 @@ class BorrowingService
         return $borrowing;
     }
 
-    private function calculateAndSaveLateFine(Borrowing $borrowing): void
-    {
-        if (! $borrowing->isOverdue()) {
-            $reward = $this->pointSettingService->getRewardReturnOnTime();
-            if ($reward > 0) {
-                $this->pointService->credit($borrowing->member_id, $reward, 'reward', Borrowing::class, (string) $borrowing->id, 'مكافأة إعادة الكتاب في الموعد');
-            }
-
-            return;
-        }
-
-        $daysLate = now()->diffInDays($borrowing->end_date);
-        $fine = $daysLate * self::FINE_PER_DAY;
-        $maxFine = $borrowing->bookInstance->book->price ?? PHP_INT_MAX;
-
-        $fine = min($fine, $maxFine);
-        LateFine::create([
-            'borrowing_id' => $borrowing->id,
-            'days_late' => $daysLate,
-            'fine' => $fine,
-            'fine_points' => $this->pointService->sypToPoints($fine),
-            'is_paid' => false,
-        ]);
-    }
-
     private function validateExtensionEligibility(Borrowing $borrowing): void
     {
         if ($borrowing->editions()->exists()) {
@@ -262,10 +307,28 @@ class BorrowingService
         }
     }
 
-    private function calculateExtensionTax(Borrowing $borrowing, string $newEndDate): float
+    private function calculateExtensionPoints(Borrowing $borrowing, string $newEndDate): int
     {
-        $extraDays = now()->parse($newEndDate)->diffInDays($borrowing->end_date);
+        $extraDays = $this->extensionDays($borrowing, $newEndDate);
+        $pointsPerDay = $this->pointSettingService->getFinePerDayPoints();
+        if ($pointsPerDay > 0) {
+            return $extraDays * $pointsPerDay;
+        }
 
-        return $extraDays * self::FINE_PER_DAY;
+        $sypPerDay = $this->pointSettingService->getFinePerDaySyp();
+
+        return $this->pointService->sypToPoints($extraDays * $sypPerDay);
+    }
+
+    private function extensionDays(Borrowing $borrowing, string $newEndDate): int
+    {
+        if (! $borrowing->end_date) {
+            return 0;
+        }
+
+        return (int) max(0, $borrowing->end_date->copy()->startOfDay()->diffInDays(
+            now()->parse($newEndDate)->startOfDay(),
+            true
+        ));
     }
 }

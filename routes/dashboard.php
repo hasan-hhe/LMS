@@ -18,6 +18,7 @@ use App\Http\Controllers\Dashboard\PublisherController;
 use App\Http\Controllers\Dashboard\ReportController;
 use App\Http\Controllers\Dashboard\ReservationController;
 use App\Http\Controllers\Dashboard\ReviewController;
+use App\Http\Controllers\Dashboard\SaleStockController;
 use App\Http\Controllers\Dashboard\TopUpCodeController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,13 +53,19 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('role:ADMIN,LIBRARIAN')->group(function () {
         Route::apiResource('books', BookController::class)->parameters(['books' => 'isbn']);
+        Route::get('book-instances/grouped', [BookInstanceController::class, 'grouped']);
         Route::apiResource('book-instances', BookInstanceController::class);
+        Route::put('book-instances/{id}/restore', [BookInstanceController::class, 'restore']);
+        Route::post('sale-stock', [SaleStockController::class, 'store']);
         Route::apiResource('authors', AuthorController::class);
         Route::apiResource('categories', CategoryController::class);
         Route::apiResource('publishers', PublisherController::class);
+        Route::get('digital-assets', [DigitalAssetController::class, 'index']);
+        Route::post('digital-assets', [DigitalAssetController::class, 'store']);
         Route::get('books/{isbn}/digital', [DigitalAssetController::class, 'show']);
         Route::match(['post', 'put'], 'books/{isbn}/digital', [DigitalAssetController::class, 'upsert']);
         Route::delete('books/{isbn}/digital', [DigitalAssetController::class, 'destroy']);
+        Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/send', [NotificationController::class, 'send']);
         Route::get('favorites', [FavoriteController::class, 'index']);
         Route::get('reviews', [ReviewController::class, 'index']);
@@ -107,6 +114,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::get('borrowings', [BorrowingController::class, 'index']);
         Route::post('borrowings', [BorrowingController::class, 'store']);
         Route::get('borrowings/{id}', [BorrowingController::class, 'show']);
+        Route::get('borrowings/{id}/extension-quote', [BorrowingController::class, 'quoteExtension']);
         Route::put('borrowings/{id}/return', [BorrowingController::class, 'returnBook']);
         Route::put('borrowings/{id}/extend', [BorrowingController::class, 'extend']);
     });

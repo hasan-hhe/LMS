@@ -51,8 +51,9 @@ class BookService
             }
             $data['rate_avg'] = $data['rate_avg'] ?? 0;
             $data['price_points'] ??= $this->pointService->sypToPoints((float) ($data['price'] ?? 0));
-            $copiesCount = (int) ($data['copies_count'] ?? $data['amount'] ?? 0);
-            unset($data['copies_count']);
+            $copiesCount = (int) ($data['copies_count'] ?? 0);
+            unset($data['copies_count'], $data['has_borrow_points']);
+            $data['borrow_points'] = max(0, (int) ($data['borrow_points'] ?? 0));
 
             $book = $this->bookRepository->create($data);
 
@@ -72,7 +73,7 @@ class BookService
 
             DB::commit();
 
-            return $book->load(['author', 'category', 'publisher']);
+            return $book->load(['author', 'category', 'publisher'])->loadCount('instances');
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -95,6 +96,10 @@ class BookService
             if (array_key_exists('price', $data) && ! array_key_exists('price_points', $data)) {
                 $data['price_points'] = $this->pointService->sypToPoints((float) $data['price']);
             }
+            unset($data['has_borrow_points']);
+            if (array_key_exists('borrow_points', $data)) {
+                $data['borrow_points'] = max(0, (int) $data['borrow_points']);
+            }
 
             $updated = $this->bookRepository->update($book, $data);
 
@@ -105,6 +110,23 @@ class BookService
             DB::rollBack();
             throw $e;
         }
+    }
+
+    public function addSaleStock(string $isbn, int $copiesCount): Book
+    {
+        return DB::transaction(function () use ($isbn, $copiesCount) {
+            $book = $this->bookRepository->findByIsbn($isbn);
+            if (! $book) {
+                throw new \Exception('الكتاب غير موجود');
+            }
+            if ($copiesCount < 1) {
+                throw new \Exception('أضف نسخة بيع واحدة على الأقل');
+            }
+
+            $book->increment('amount', $copiesCount);
+
+            return $book->fresh(['author', 'category', 'publisher'])->loadCount('instances');
+        });
     }
 
     public function deleteBook(string $isbn): void

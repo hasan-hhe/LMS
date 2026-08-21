@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Dashboard;
 use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BookInstance\StoreBookInstanceRequest;
+use App\Http\Resources\BookInstanceGroupResource;
 use App\Http\Resources\BookInstanceResource;
+use App\Models\Book;
 use App\Models\BookInstance;
+use App\Models\Borrowing;
 use App\Models\InstanceState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,9 +21,16 @@ class BookInstanceController extends Controller
     {
         try {
             $instances = BookInstance::with(['book', 'state'])
-                ->when($request->book_isbn, fn($q) => $q->where('book_ISBN', $request->book_isbn))
-                ->when($request->state_id, fn($q) => $q->where('state_id', $request->state_id))
-                ->paginate(15);
+                ->when($request->book_isbn, fn ($q) => $q->where('book_ISBN', $request->book_isbn))
+                ->when($request->state_id, fn ($q) => $q->where('state_id', $request->state_id))
+                ->when($request->search, function ($q) use ($request) {
+                    $search = $request->search;
+                    $q->whereHas('book', fn ($book) => $book
+                        ->where('title', 'like', "%{$search}%")
+                        ->orWhere('ISBN', 'like', "%{$search}%"));
+                })
+                ->latest('id')
+                ->paginate(ResponseHelper::perPage($request));
 
             return ResponseHelper::paginated(
                 BookInstanceResource::collection($instances),
@@ -31,16 +41,57 @@ class BookInstanceController extends Controller
         }
     }
 
+    public function grouped(Request $request): JsonResponse
+    {
+        try {
+            $query = Book::query()
+                ->withCount([
+                    'instances',
+                    'instances as available_count' => fn ($q) => $q->whereHas('state', fn ($state) => $state->where('state', 'available')),
+                ])
+                ->whereHas('instances', function ($q) use ($request) {
+                    if ($request->state_id) {
+                        $q->where('state_id', $request->state_id);
+                    }
+                });
+
+            if ($search = $request->input('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                        ->orWhere('ISBN', 'like', "%{$search}%");
+                });
+            }
+
+            $books = $query->orderBy('title')->paginate(ResponseHelper::perPage($request));
+
+            return ResponseHelper::paginated(
+                BookInstanceGroupResource::collection($books),
+                'تم جلب مجموعات النسخ'
+            );
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
     public function store(StoreBookInstanceRequest $request): JsonResponse
     {
         DB::beginTransaction();
         try {
-            $instance = BookInstance::create($request->validated());
+            $payload = $request->safe()->except(['copies_count']);
+            $count = max(1, (int) $request->input('copies_count', 1));
+            $created = [];
+
+            for ($i = 0; $i < $count; $i++) {
+                $created[] = BookInstance::create($payload);
+            }
+
+            $first = $created[0]->load(['book', 'state']);
 
             DB::commit();
+
             return ResponseHelper::created(
-                new BookInstanceResource($instance->load(['book', 'state'])),
-                'تم إضافة نسخة الكتاب بنجاح'
+                new BookInstanceResource($first),
+                $count > 1 ? "تم إضافة {$count} نسخ بنجاح" : 'تم إضافة نسخة الكتاب بنجاح'
             );
         } catch (\Exception $e) {
             DB::rollBack();
@@ -101,6 +152,49 @@ class BookInstanceController extends Controller
 
             DB::commit();
             return ResponseHelper::noContent('تم حذف النسخة بنجاح');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        DB::beginTransaction();
+        try {
+            $instance = BookInstance::with(['state', 'book'])->find($id);
+            if (! $instance) {
+                return ResponseHelper::notFound('نسخة الكتاب غير موجودة');
+            }
+
+            $state = $instance->state?->state;
+            if (! in_array($state, ['damaged', 'lost'], true)) {
+                DB::rollBack();
+                return ResponseHelper::error('يمكن إعادة النسخ التالفة أو المفقودة فقط إلى التداول', 422);
+            }
+
+            $activeBorrowing = Borrowing::where('book_instance_id', $instance->id)
+                ->whereNull('returned_at')
+                ->exists();
+            if ($activeBorrowing) {
+                DB::rollBack();
+                return ResponseHelper::error('لا يمكن إعادة النسخة للتداول وهي ما زالت مستعارة', 422);
+            }
+
+            $available = InstanceState::where('state', 'available')->first();
+            if (! $available) {
+                DB::rollBack();
+                return ResponseHelper::error('حالة النسخة المتاحة غير موجودة', 500);
+            }
+
+            $instance->update(['state_id' => $available->id]);
+
+            DB::commit();
+
+            return ResponseHelper::success(
+                new BookInstanceResource($instance->fresh(['book', 'state'])),
+                'تم إعادة النسخة إلى التداول'
+            );
         } catch (\Exception $e) {
             DB::rollBack();
             return ResponseHelper::error($e->getMessage(), 500);

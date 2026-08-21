@@ -12,18 +12,32 @@
         },
     };
 
+    function itemsFrom(res) {
+        return LmsHelpers.extractItems(res);
+    }
+
     function getBooksListParams(page) {
         return LmsHelpers.buildListParams(page, booksFilterConfig);
     }
 
     function loadFilters() {
-        return Promise.all([
-            LmsApi.getCategories({ per_page: 100 }),
-            LmsApi.getAuthors({ per_page: 100 }),
-        ]).then(function (results) {
-            LmsHelpers.fillSelect('#filterCategory', results[0].data, 'id', 'title');
-            LmsHelpers.fillSelect('#filterAuthor', results[1].data, 'id', 'full_name');
+        LmsHelpers.initRemoteSelect('#filterCategory', {
+            placeholder: 'كل التصنيفات',
+            valueKey: 'id',
+            labelFn: 'title',
+            fetchFn: function (query) {
+                return LmsApi.getCategories({ search: query, per_page: 30 }).then(itemsFrom);
+            },
         });
+        LmsHelpers.initRemoteSelect('#filterAuthor', {
+            placeholder: 'كل المؤلفين',
+            valueKey: 'id',
+            labelFn: 'full_name',
+            fetchFn: function (query) {
+                return LmsApi.getAuthors({ search: query, per_page: 30 }).then(itemsFrom);
+            },
+        });
+        return Promise.resolve();
     }
 
     function loadBooksList(page) {
@@ -43,6 +57,9 @@
                     '<td>' + (book.author?.full_name || '-') + '</td>' +
                     '<td>' + (book.category?.title || '-') + '</td>' +
                     '<td>' + (book.price_points ?? 0) + '</td>' +
+                    '<td>' + ((book.borrow_points ?? 0) > 0 ? book.borrow_points : 'مجانية') + '</td>' +
+                    '<td>' + (book.sale_stock ?? book.amount ?? 0) + '</td>' +
+                    '<td>' + (book.copies_count ?? book.instances_count ?? 0) + '</td>' +
                     '<td>' + (book.year_of_publishing || '-') + '</td>' +
                     '<td>' +
                     '<a href="' + editBaseUrl + '/' + encodeURIComponent(book.isbn) + '" class="btn btn-sm btn-info"><i class="fa fa-eye"></i></a> ' +
@@ -53,74 +70,129 @@
         });
     }
 
-    function loadBookForm(isbn) {
-        Promise.all([
-            LmsApi.getAuthors({ per_page: 200 }),
-            LmsApi.getCategories({ per_page: 200 }),
-            LmsApi.getPublishers({ per_page: 200 }),
-            isbn ? LmsApi.getBook(isbn) : Promise.resolve(null),
-        ]).then(function (results) {
-            const authors = results[0].data || [];
-            const categories = results[1].data || [];
-            const publishers = results[2].data || [];
-            const book = results[3]?.data;
-
-            LmsHelpers.fillSelect('#auther_id', authors, 'id', 'full_name', book?.author?.id);
-            LmsHelpers.fillSelect('#catagory_id', categories, 'id', 'title', book?.category?.id);
-            LmsHelpers.fillSelect('#publisher_id', publishers, 'id', 'name', book?.publisher?.id);
-
-            if (book) {
-                const form = document.getElementById('bookForm');
-                form.title.value = book.title || '';
-                form.discription.value = book.description || '';
-                form.price.value = book.price || '';
-                form.price_points.value = book.price_points ?? '';
-                form.amount.value = book.amount || '';
-                form.year_of_publishing.value = book.year_of_publishing || '';
-                form.number_edition.value = book.number_edition || '';
-                if (book.cover_url) {
-                    $('#coverPreview').attr('src', book.cover_url).show();
-                }
-                fillDigitalForm(book.digital);
-            }
+    function bindLookupSelects(book) {
+        LmsHelpers.initRemoteSelect('#auther_id', {
+            placeholder: 'اختر المؤلف',
+            valueKey: 'id',
+            labelFn: 'full_name',
+            selectedValue: book?.author?.id,
+            fetchFn: function (query) {
+                return LmsApi.getAuthors({ search: query, per_page: 30 }).then(function (res) {
+                    const items = itemsFrom(res);
+                    if (book?.author && !items.some(function (item) { return String(item.id) === String(book.author.id); })) {
+                        items.unshift(book.author);
+                    }
+                    return items;
+                });
+            },
         });
+        LmsHelpers.initRemoteSelect('#catagory_id', {
+            placeholder: 'اختر التصنيف',
+            valueKey: 'id',
+            labelFn: 'title',
+            selectedValue: book?.category?.id,
+            fetchFn: function (query) {
+                return LmsApi.getCategories({ search: query, per_page: 30 }).then(function (res) {
+                    const items = itemsFrom(res);
+                    if (book?.category && !items.some(function (item) { return String(item.id) === String(book.category.id); })) {
+                        items.unshift(book.category);
+                    }
+                    return items;
+                });
+            },
+        });
+        LmsHelpers.initRemoteSelect('#publisher_id', {
+            placeholder: 'اختر دار النشر',
+            valueKey: 'id',
+            labelFn: 'name',
+            selectedValue: book?.publisher?.id,
+            fetchFn: function (query) {
+                return LmsApi.getPublishers({ search: query, per_page: 30 }).then(function (res) {
+                    const items = itemsFrom(res);
+                    if (book?.publisher && !items.some(function (item) { return String(item.id) === String(book.publisher.id); })) {
+                        items.unshift(book.publisher);
+                    }
+                    return items;
+                });
+            },
+        });
+    }
+
+    function applyBookFiles(book) {
+        LmsHelpers.setFileCurrentUrl('[name="cover_image"]', book?.cover_url || '');
+        LmsHelpers.setFileCurrentUrl('#digital_pdf', book?.digital?.pdf_url || '');
+        LmsHelpers.setFileCurrentUrl('#digital_audio', book?.digital?.audio_url || '');
+        LmsHelpers.enhanceFileInputs(document.getElementById('bookForm') || document);
+    }
+
+    function loadBookForm(isbn) {
+        const request = isbn ? LmsApi.getBook(isbn) : Promise.resolve(null);
+        request.then(function (res) {
+            const book = res?.data;
+            bindLookupSelects(book);
+
+            if (!book) return;
+
+            const form = document.getElementById('bookForm');
+            form.title.value = book.title || '';
+            form.discription.value = book.description || '';
+            form.price.value = book.price || '';
+            form.price_points.value = book.price_points ?? '';
+            applyBorrowPointsFields(book.borrow_points);
+            form.amount.value = book.amount ?? '';
+            const copiesField = document.getElementById('current_copies_count');
+            if (copiesField) {
+                copiesField.value = book.copies_count ?? book.instances_count ?? 0;
+            }
+            form.year_of_publishing.value = book.year_of_publishing || '';
+            form.number_edition.value = book.number_edition || '';
+            applyBookFiles(book);
+            fillDigitalForm(book.digital);
+        }).catch(LmsHelpers.handleApiError);
+    }
+
+    function applyBorrowPointsFields(borrowPoints) {
+        const checkbox = document.getElementById('has_borrow_points');
+        const input = document.querySelector('#bookForm [name="borrow_points"]');
+        if (!checkbox || !input) return;
+        const points = Number(borrowPoints || 0);
+        checkbox.checked = points > 0;
+        input.value = points > 0 ? points : 0;
+        syncBorrowPointsFields();
+    }
+
+    function syncBorrowPointsFields() {
+        const checkbox = document.getElementById('has_borrow_points');
+        const wrap = document.getElementById('borrowPointsWrap');
+        const input = document.querySelector('#bookForm [name="borrow_points"]');
+        if (!checkbox || !input) return;
+        if (checkbox.checked) {
+            wrap?.classList.remove('d-none');
+            input.disabled = false;
+            input.min = '1';
+            input.required = true;
+            if (!input.value || Number(input.value) < 1) {
+                input.value = '';
+            }
+        } else {
+            wrap?.classList.add('d-none');
+            input.required = false;
+            input.min = '0';
+            input.value = '0';
+            input.disabled = false;
+        }
     }
 
     function fillDigitalForm(digital) {
         const isFree = document.getElementById('digital_is_free');
         const removePdf = document.getElementById('digital_remove_pdf');
         const removeAudio = document.getElementById('digital_remove_audio');
-        const pdfInput = document.getElementById('digital_pdf');
-        const audioInput = document.getElementById('digital_audio');
         if (!isFree) return;
         isFree.checked = !!digital?.is_free;
         if (removePdf) removePdf.checked = false;
         if (removeAudio) removeAudio.checked = false;
-        if (pdfInput) pdfInput.value = '';
-        if (audioInput) audioInput.value = '';
-        setDigitalCurrent('digital_pdf_current', digital?.has_pdf, digital?.pdf_url, 'PDF', digital?.pdf_size);
-        setDigitalCurrent('digital_audio_current', digital?.has_audio, digital?.audio_url, 'صوتي', digital?.audio_size);
-    }
-
-    function setDigitalCurrent(elementId, hasFile, url, label, size) {
-        const el = document.getElementById(elementId);
-        if (!el) return;
-        if (!hasFile) {
-            el.textContent = 'لا يوجد ملف ' + label;
-            return;
-        }
-        const sizeText = size ? ' (' + formatDigitalSize(size) + ')' : '';
-        if (url) {
-            el.innerHTML = 'ملف ' + label + ' مرفوع' + sizeText + ' — <a href="' + url + '" target="_blank" rel="noopener">فتح / تحميل</a>';
-            return;
-        }
-        el.textContent = 'ملف ' + label + ' مرفوع' + sizeText;
-    }
-
-    function formatDigitalSize(bytes) {
-        if (!bytes || bytes < 1024) return (bytes || 0) + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        LmsHelpers.setFileCurrentUrl('#digital_pdf', digital?.pdf_url || '');
+        LmsHelpers.setFileCurrentUrl('#digital_audio', digital?.audio_url || '');
     }
 
     function initDigitalAssetForm() {
@@ -145,6 +217,7 @@
                 return LmsApi.upsertDigitalAsset(isbn, formData).then(function (res) {
                     LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                     fillDigitalForm(res.data);
+                    LmsHelpers.enhanceFileInputs('#digitalAssetForm');
                 }).catch(LmsHelpers.handleApiError);
             });
         });
@@ -164,6 +237,8 @@
         if (!form) return;
 
         loadBookForm(window.LMS_BOOK_ISBN);
+        syncBorrowPointsFields();
+        $('#has_borrow_points').on('change', syncBorrowPointsFields);
 
         LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#bookForm');
@@ -172,10 +247,13 @@
             const request = isbn ? LmsApi.updateBook(isbn, formData) : LmsApi.createBook(formData);
 
             return request.then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                setTimeout(function () {
-                    window.location.href = booksIndexUrl;
-                }, 500);
+                LmsHelpers.afterFormSave(res, {
+                    isEdit: !!isbn,
+                    indexUrl: booksIndexUrl,
+                });
+                if (isbn && res.data) {
+                    applyBookFiles(res.data);
+                }
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#bookForm');
             });
@@ -197,7 +275,9 @@
                 '<p><strong>دار النشر:</strong> ' + (book.publisher?.name || '-') + '</p>' +
                 '<p><strong>السعر (ل.س):</strong> ' + (book.price || 0) + '</p>' +
                 '<p><strong>سعر النقاط:</strong> ' + (book.price_points ?? 0) + ' نقطة</p>' +
-                '<p><strong>الكمية:</strong> ' + (book.amount || 0) + '</p>' +
+                '<p><strong>نقاط الاستعارة:</strong> ' + ((book.borrow_points ?? 0) > 0 ? book.borrow_points + ' نقطة' : 'مجانية') + '</p>' +
+                '<p><strong>نسخ البيع:</strong> ' + (book.sale_stock ?? book.amount ?? 0) + '</p>' +
+                '<p><strong>نسخ الاستعارة:</strong> ' + (book.copies_count ?? book.instances_count ?? 0) + '</p>' +
                 '<p><strong>الوصف:</strong> ' + (book.description || '') + '</p>' +
                 '<hr><h5>المحتوى الرقمي</h5>' +
                 (book.digital
@@ -222,10 +302,9 @@
 
     runWhenDashboardReady(function () {
         if (document.getElementById('booksTableBody')) {
-            loadFilters().then(function () {
-                loadBooksList(1);
-                LmsHelpers.bindTableFilters(booksFilterConfig, loadBooksList);
-            });
+            loadFilters();
+            loadBooksList(1);
+            LmsHelpers.bindTableFilters(booksFilterConfig, loadBooksList);
 
             $(document).on('click', '.btn-delete-book', function () {
                 const isbn = $(this).data('isbn');

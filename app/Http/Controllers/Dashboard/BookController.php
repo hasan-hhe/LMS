@@ -18,7 +18,7 @@ class BookController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = $request->only(['search', 'category_id', 'author_id', 'year']);
+            $filters = $request->only(['search', 'category_id', 'author_id', 'year', 'per_page']);
             $books   = $this->bookService->listBooks($filters);
 
             return ResponseHelper::paginated(

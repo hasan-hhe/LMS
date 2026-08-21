@@ -3,13 +3,14 @@
 namespace App\Notifications;
 
 use App\Models\Reservation;
+use App\Notifications\Concerns\BrandedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ReservationExpiredNotification extends Notification
 {
-    use Queueable;
+    use BrandedMail, Queueable;
 
     public function __construct(public Reservation $reservation) {}
 
@@ -20,7 +21,7 @@ class ReservationExpiredNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return $this->mail()
             ->subject('انتهت مهلة استلام الحجز')
             ->greeting('مرحباً '.$notifiable->fullName())
             ->line('انتهت مهلة استلام كتاب "'.$this->reservation->bookInstance?->book?->title.'" ولم يتم استلامه.')

@@ -120,8 +120,8 @@ class AuthControllerTest extends TestCase
             'password' => 'wrongpassword',
         ]);
 
-        $response->assertStatus(400)
-            ->assertJsonFragment(['body' => 'كلمة المرور غير صحيحة']);
+        $response->assertStatus(401)
+            ->assertJsonFragment(['body' => 'البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة']);
     }
 
     public function test_logout_deletes_token(): void

@@ -57,9 +57,8 @@
                 form.state.value = member.state || 'ACTIVE';
             }
 
-            if (member.photo_url) {
-                $('#photoPreview').attr('src', member.photo_url).show();
-            }
+            LmsHelpers.setFileCurrentUrl('[name="photo_image"]', member.photo_url || '');
+            LmsHelpers.enhanceFileInputs('#memberForm');
         }).catch(LmsHelpers.handleApiError);
     }
 
@@ -78,10 +77,10 @@
                 : LmsApi.createMember(formData);
 
             return request.then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                setTimeout(function () {
-                    window.location.href = indexUrl;
-                }, 500);
+                LmsHelpers.afterFormSave(res, { isEdit: !!memberId, indexUrl: indexUrl });
+                if (memberId && res.data?.photo_url) {
+                    LmsHelpers.setFileCurrentUrl('[name="photo_image"]', res.data.photo_url);
+                }
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#memberForm');
             });

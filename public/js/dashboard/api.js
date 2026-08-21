@@ -87,11 +87,23 @@
         },
 
         updateBook(isbn, formData) {
+            if (formData instanceof FormData) {
+                formData.append('_method', 'PUT');
+                return apiClient.post('/books/' + encodeURIComponent(isbn), formData).then(unwrap);
+            }
             return apiClient.put('/books/' + encodeURIComponent(isbn), formData).then(unwrap);
         },
 
         deleteBook(isbn) {
             return apiClient.delete('/books/' + encodeURIComponent(isbn)).then(unwrap);
+        },
+
+        addSaleStock(data) {
+            return apiClient.post('/sale-stock', data).then(unwrap);
+        },
+
+        getBookInstanceGroups(params) {
+            return apiClient.get('/book-instances/grouped', { params }).then(unwrap);
         },
 
         getBookInstances(params) {
@@ -108,6 +120,10 @@
 
         updateBookInstance(id, data) {
             return apiClient.put('/book-instances/' + id, data).then(unwrap);
+        },
+
+        restoreBookInstance(id) {
+            return apiClient.put('/book-instances/' + id + '/restore').then(unwrap);
         },
 
         deleteBookInstance(id) {
@@ -219,6 +235,10 @@
         },
 
         updateLibrarian(id, formData) {
+            if (formData instanceof FormData) {
+                formData.append('_method', 'PUT');
+                return apiClient.post('/librarians/' + id, formData).then(unwrap);
+            }
             return apiClient.put('/librarians/' + id, formData).then(unwrap);
         },
 
@@ -238,20 +258,24 @@
             return apiClient.post('/borrowings', data).then(unwrap);
         },
 
-        returnBorrowing(id) {
-            return apiClient.put('/borrowings/' + id + '/return').then(unwrap);
+        returnBorrowing(id, data) {
+            return apiClient.put('/borrowings/' + id + '/return', data || {}).then(unwrap);
         },
 
         extendBorrowing(id, data) {
             return apiClient.put('/borrowings/' + id + '/extend', data).then(unwrap);
         },
 
+        quoteBorrowingExtension(id, params) {
+            return apiClient.get('/borrowings/' + id + '/extension-quote', { params }).then(unwrap);
+        },
+
         getFines(params) {
             return apiClient.get('/fines', { params }).then(unwrap);
         },
 
-        payFine(id) {
-            return apiClient.put('/fines/' + id + '/pay').then(unwrap);
+        payFine(id, data) {
+            return apiClient.put('/fines/' + id + '/pay', data || {}).then(unwrap);
         },
 
         getPointsBalance(memberId) {
@@ -385,6 +409,14 @@
             return apiClient.delete('/reviews/' + id).then(unwrap);
         },
 
+        getDigitalAssets(params) {
+            return apiClient.get('/digital-assets', { params }).then(unwrap);
+        },
+
+        createDigitalAsset(formData) {
+            return apiClient.post('/digital-assets', formData).then(unwrap);
+        },
+
         getDigitalAsset(isbn) {
             return apiClient.get('/books/' + encodeURIComponent(isbn) + '/digital').then(unwrap);
         },
@@ -395,6 +427,10 @@
 
         deleteDigitalAsset(isbn) {
             return apiClient.delete('/books/' + encodeURIComponent(isbn) + '/digital').then(unwrap);
+        },
+
+        getNotifications(params) {
+            return apiClient.get('/notifications', { params }).then(unwrap);
         },
 
         sendNotification(data) {

@@ -19,6 +19,7 @@ class BookInstanceResource extends JsonResource
             'book'      => $this->whenLoaded('book', fn() => [
                 'isbn'  => $this->book->ISBN,
                 'title' => $this->book->title,
+                'borrow_points' => (int) ($this->book->borrow_points ?? 0),
             ]),
         ];
     }

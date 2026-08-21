@@ -1,12 +1,12 @@
 @extends('admin.layouts.master')
-@section('title', 'إضافة نسخة كتاب')
+@section('title', 'إضافة نسخة استعارة')
 @section('main-content')
 <div class="container">
     <div class="page-inner">
         @include('admin.components.page-header', [
-            'title' => 'إضافة نسخة كتاب',
+            'title' => 'إضافة نسخة استعارة',
             'arr' => [
-                ['title' => 'نسخ الكتب', 'link' => route('admin.book-instances.index')],
+                ['title' => 'نسخ الكتب الاستعارة', 'link' => route('admin.book-instances.index')],
                 ['title' => 'إضافة', 'link' => ''],
             ],
         ])
@@ -17,7 +17,7 @@
                         <div class="row">
                             <div class="col-md-4 form-group mb-3">
                                 <label>الكتاب (ISBN) *</label>
-                                <select name="book_ISBN" id="book_ISBN" class="form-control" required>
+                                <select name="book_ISBN" id="book_ISBN" class="form-control" data-remote="1" required>
                                     <option value="">اختر الكتاب</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
@@ -29,7 +29,7 @@
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-4 form-group mb-3">
+                            <div class="col-md-3 form-group mb-3">
                                 <label>الوضع *</label>
                                 <select name="condition" id="condition" class="form-control" required>
                                     <option value="">اختر الوضع</option>
@@ -37,6 +37,12 @@
                                     <option value="almost_new">شبه جديد</option>
                                     <option value="worn">مستعمل</option>
                                 </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-3 form-group mb-3">
+                                <label>عدد النسخ *</label>
+                                <input type="number" name="copies_count" class="form-control" min="1" max="200" value="1" required>
+                                <small class="form-text text-muted">سيتم إدخال هذا العدد من النسخ بنفس الحالة والوضع.</small>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>

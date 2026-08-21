@@ -9,4 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('borrowings:send-due-reminders')->dailyAt('08:00');
+Schedule::command('fines:accrue-daily')->dailyAt('00:10');
 Schedule::command('reservations:expire-unclaimed')->hourly();
+Schedule::command('orders:expire-unclaimed')->hourly();

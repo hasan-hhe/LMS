@@ -1,6 +1,10 @@
 (function () {
     'use strict';
 
+    const filterConfig = {
+        search: '#searchNotifications',
+    };
+
     function selectedUserIds() {
         return $('#notificationUserIds').val() || [];
     }
@@ -12,21 +16,51 @@
     }
 
     function loadMembers(preselectedId) {
-        return LmsApi.getMembers({ per_page: 500 }).then(function (res) {
-            const $select = $('#notificationUserIds');
-            $select.empty();
-            (res.data || []).forEach(function (member) {
-                const label = member.full_name || member.email || ('عضو #' + member.id);
-                $select.append('<option value="' + member.id + '">' + label + '</option>');
-            });
-            if (preselectedId) {
-                $select.val(String(preselectedId));
-            }
+        LmsHelpers.initRemoteSelect('#notificationUserIds', {
+            placeholder: 'ابحث عن عضو...',
+            valueKey: 'id',
+            labelFn: function (member) {
+                return member.full_name || member.email || ('عضو #' + member.id);
+            },
+            selectedValue: preselectedId,
+            fetchFn: function (query) {
+                return LmsApi.getMembers({ search: query, per_page: 30 }).then(LmsHelpers.extractItems);
+            },
+        });
+        return Promise.resolve();
+    }
+
+    function loadNotificationsList(page) {
+        if (!document.getElementById('notificationsTableBody')) return Promise.resolve();
+        return LmsHelpers.loadPaginatedTable({
+            apiCall: LmsApi.getNotifications,
+            getParams: function (nextPage) {
+                return LmsHelpers.buildListParams(nextPage, filterConfig);
+            },
+            params: LmsHelpers.buildListParams(page || 1, filterConfig),
+            tableBodySelector: '#notificationsTableBody',
+            paginationSelector: '#notificationsPagination',
+            totalSelector: '#totalNotifications',
+            renderRow: function (item, index, meta) {
+                const rowNum = ((meta.current_page || 1) - 1) * (meta.per_page || 15) + index + 1;
+                return '<tr>' +
+                    '<td>' + rowNum + '</td>' +
+                    '<td>' + (item.user?.full_name || item.user?.email || '-') + '</td>' +
+                    '<td>' + (item.title || '-') + '</td>' +
+                    '<td>' + (item.message || '-') + '</td>' +
+                    '<td>' + (item.read_at ? 'مقروء' : 'غير مقروء') + '</td>' +
+                    '<td>' + LmsHelpers.formatDate(item.created_at) + '</td>' +
+                    '</tr>';
+            },
         });
     }
 
     function initPage() {
         const form = document.getElementById('sendNotificationForm');
+        if (document.getElementById('notificationsTableBody')) {
+            loadNotificationsList(1);
+            LmsHelpers.bindTableFilters(filterConfig, loadNotificationsList);
+        }
         if (!form) return;
 
         const params = new URLSearchParams(window.location.search);
@@ -62,9 +96,9 @@
                 form.reset();
                 if (preselectedId) {
                     $('#notificationAudience').val('selected');
-                    $('#notificationUserIds').val(String(preselectedId));
                 }
                 toggleAudienceFields();
+                loadNotificationsList(1);
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#sendNotificationForm');
             });

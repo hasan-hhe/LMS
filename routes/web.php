@@ -28,9 +28,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/books/{isbn}', [DashboardViewController::class, 'booksShow'])->name('books.show');
     Route::get('/books/{isbn}/edit', [DashboardViewController::class, 'booksEdit'])->name('books.edit');
 
+    Route::get('/digital-assets', [DashboardViewController::class, 'digitalAssetsIndex'])->name('digital-assets.index');
+    Route::get('/digital-assets/create', [DashboardViewController::class, 'digitalAssetsCreate'])->name('digital-assets.create');
+    Route::get('/digital-assets/{isbn}/edit', [DashboardViewController::class, 'digitalAssetsEdit'])->name('digital-assets.edit');
+
     Route::get('/book-instances', [DashboardViewController::class, 'bookInstancesIndex'])->name('book-instances.index');
     Route::get('/book-instances/create', [DashboardViewController::class, 'bookInstancesCreate'])->name('book-instances.create');
     Route::get('/book-instances/{id}/edit', [DashboardViewController::class, 'bookInstancesEdit'])->name('book-instances.edit');
+
+    Route::get('/sale-copies', [DashboardViewController::class, 'saleCopiesIndex'])->name('sale-copies.index');
+    Route::get('/sale-copies/create', [DashboardViewController::class, 'saleCopiesCreate'])->name('sale-copies.create');
 
     Route::get('/authors', [DashboardViewController::class, 'authorsIndex'])->name('authors.index');
     Route::get('/authors/create', [DashboardViewController::class, 'authorsCreate'])->name('authors.create');

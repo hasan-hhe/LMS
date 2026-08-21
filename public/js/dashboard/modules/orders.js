@@ -6,7 +6,8 @@
 
     const orderStateLabels = {
         pending: 'قيد الانتظار',
-        confirmed: 'مؤكد',
+        confirmed: 'مؤكد — بانتظار الاستلام',
+        delivered: 'تم التسليم',
         cancelled: 'ملغي',
         rejected: 'مرفوض',
     };
@@ -65,19 +66,17 @@
     }
 
     function loadUsersSelect() {
-        return LmsApi.getMembers({ per_page: 500 }).then(function (res) {
-            const members = res.data || [];
-            const $select = $('#user_id');
-            $select.find('option:not(:first)').remove();
-            members.forEach(function (member) {
-                const roleLabel = LmsHelpers.roleLabel(member.role);
-                $select.append(
-                    '<option value="' + member.id + '">' +
-                    (member.full_name || member.email) + ' (' + roleLabel + ')' +
-                    '</option>'
-                );
-            });
+        LmsHelpers.initRemoteSelect('#user_id', {
+            placeholder: 'اختر المستخدم...',
+            valueKey: 'id',
+            labelFn: function (member) {
+                return (member.full_name || member.email) + ' (' + LmsHelpers.roleLabel(member.role) + ')';
+            },
+            fetchFn: function (query) {
+                return LmsApi.getMembers({ search: query, per_page: 30 }).then(LmsHelpers.extractItems);
+            },
         });
+        return Promise.resolve();
     }
 
     let itemRowIndex = 0;

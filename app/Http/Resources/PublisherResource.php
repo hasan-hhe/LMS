@@ -13,7 +13,7 @@ class PublisherResource extends JsonResource
             'id'          => $this->id,
             'name'        => $this->name,
             'location'    => $this->location,
-            'books_count' => $this->whenLoaded('books', fn() => $this->books->count()),
+            'books_count' => (int) ($this->books_count ?? ($this->relationLoaded('books') ? $this->books->count() : 0)),
         ];
     }
 }

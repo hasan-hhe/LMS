@@ -12,6 +12,7 @@ use App\Models\Publisher;
 use App\Models\Reservation;
 use App\Models\ReservationState;
 use App\Models\User;
+use App\Models\UserPoint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -83,6 +84,54 @@ class BorrowingControllerTest extends TestCase
         ]);
     }
 
+    public function test_checkout_debits_book_borrow_points(): void
+    {
+        $this->instance->book->update(['borrow_points' => 8]);
+        UserPoint::create(['user_id' => $this->member->id, 'balance' => 20]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/borrowings', [
+                'member_id' => $this->member->id,
+                'book_instance_id' => $this->instance->id,
+                'end_date' => now()->addDays(14)->toDateString(),
+            ])
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('user_points', [
+            'user_id' => $this->member->id,
+            'balance' => 12,
+        ]);
+        $this->assertDatabaseHas('point_transactions', [
+            'user_id' => $this->member->id,
+            'points' => -8,
+            'type' => 'spend',
+        ]);
+    }
+
+    public function test_checkout_fails_when_borrow_points_exceed_balance(): void
+    {
+        $this->instance->book->update(['borrow_points' => 10]);
+        UserPoint::create(['user_id' => $this->member->id, 'balance' => 3]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/borrowings', [
+                'member_id' => $this->member->id,
+                'book_instance_id' => $this->instance->id,
+                'end_date' => now()->addDays(14)->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('body', 'رصيد النقاط غير كافٍ لإتمام العملية');
+
+        $this->assertDatabaseMissing('borrowings', [
+            'member_id' => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+        ]);
+    }
+
     public function test_checkout_fails_if_instance_not_available(): void
     {
         $borrowedState = InstanceState::where('state', 'borrowed')->first();
@@ -103,18 +152,16 @@ class BorrowingControllerTest extends TestCase
     {
         $availableState = InstanceState::where('state', 'available')->first();
 
-        for ($i = 0; $i < 5; $i++) {
-            Borrowing::create([
-                'member_id'        => $this->member->id,
-                'librarian_id'     => $this->librarian->id,
-                'book_instance_id' => $this->instance->id,
-                'start_date'       => now(),
-                'end_date'         => now()->addDays(14),
-                'due_date'         => now()->addDays(14),
-                'borrowing_cast'   => 0,
-                'is_paid'          => false,
-            ]);
-        }
+        Borrowing::create([
+            'member_id'        => $this->member->id,
+            'librarian_id'     => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date'       => now(),
+            'end_date'         => now()->addDays(14),
+            'due_date'         => now()->addDays(14),
+            'borrowing_cast'   => 0,
+            'is_paid'          => false,
+        ]);
 
         $token = $this->librarian->createToken('test')->plainTextToken;
 
@@ -149,6 +196,160 @@ class BorrowingControllerTest extends TestCase
             ->assertJsonPath('data.is_returned', true);
     }
 
+    public function test_return_damaged_creates_replacement_fine(): void
+    {
+        InstanceState::create(['state' => 'damaged']);
+        $this->instance->book?->update(['price_points' => 15]);
+
+        $borrowing = Borrowing::create([
+            'member_id'        => $this->member->id,
+            'librarian_id'     => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date'       => now(),
+            'end_date'         => now()->addDays(14),
+            'due_date'         => now()->addDays(14),
+            'borrowing_cast'   => 0,
+            'is_paid'          => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/return", ['outcome' => 'damaged'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.damage_fine.type', 'damage')
+            ->assertJsonPath('data.damage_fine.fine_points', 15);
+
+        $this->assertDatabaseHas('late_fines', [
+            'borrowing_id' => $borrowing->id,
+            'type' => 'damage',
+            'fine_points' => 15,
+        ]);
+        $this->assertDatabaseHas('book_instances', [
+            'id' => $this->instance->id,
+            'state_id' => InstanceState::where('state', 'damaged')->value('id'),
+        ]);
+    }
+
+    public function test_damage_return_waives_remaining_late_fine(): void
+    {
+        InstanceState::create(['state' => 'damaged']);
+        $borrowedState = InstanceState::where('state', 'borrowed')->first();
+        $this->instance->update(['state_id' => $borrowedState->id]);
+        $this->instance->book?->update(['price' => 20, 'price_points' => 10]);
+
+        $borrowing = Borrowing::create([
+            'member_id' => $this->member->id,
+            'librarian_id' => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date' => now()->subDays(20),
+            'end_date' => now()->subDays(5),
+            'due_date' => now()->subDays(5),
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+
+        \App\Models\LateFine::create([
+            'borrowing_id' => $borrowing->id,
+            'type' => 'late',
+            'days_late' => 5,
+            'fine' => 2.5,
+            'fine_points' => 5,
+            'is_paid' => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/return", ['outcome' => 'damaged'])
+            ->assertStatus(200);
+
+        $this->assertDatabaseHas('late_fines', [
+            'borrowing_id' => $borrowing->id,
+            'type' => 'late',
+            'is_paid' => true,
+            'paid_via' => 'waived',
+        ]);
+        $this->assertDatabaseHas('late_fines', [
+            'borrowing_id' => $borrowing->id,
+            'type' => 'damage',
+            'fine_points' => 10,
+        ]);
+    }
+
+    public function test_admin_can_extend_after_member_extension(): void
+    {
+        $borrowedState = InstanceState::where('state', 'borrowed')->first();
+        $this->instance->update(['state_id' => $borrowedState->id]);
+        UserPoint::create(['user_id' => $this->member->id, 'balance' => 50]);
+
+        $borrowing = Borrowing::create([
+            'member_id' => $this->member->id,
+            'librarian_id' => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date' => now(),
+            'end_date' => now()->addDays(7),
+            'due_date' => now()->addDays(7),
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $firstEnd = now()->addDays(14)->toDateString();
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/extend", [
+                'new_end_date' => $firstEnd,
+            ])
+            ->assertStatus(200);
+
+        $adminEnd = now()->addDays(21)->toDateString();
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/extend", [
+                'new_end_date' => $adminEnd,
+                'administrative' => true,
+                'cause' => 'تمديد إداري',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.end_date', $adminEnd);
+    }
+
+    public function test_extension_quote_returns_points(): void
+    {
+        $borrowedState = InstanceState::where('state', 'borrowed')->first();
+        $this->instance->update(['state_id' => $borrowedState->id]);
+
+        $borrowing = Borrowing::create([
+            'member_id' => $this->member->id,
+            'librarian_id' => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date' => now(),
+            'end_date' => now()->addDays(7),
+            'due_date' => now()->addDays(7),
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $newEnd = now()->addDays(14)->toDateString();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson("/api/v1/borrowings/{$borrowing->id}/extension-quote?new_end_date={$newEnd}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.can_extend', true)
+            ->assertJsonPath('data.days', 7);
+    }
+
+    public function test_restore_returns_damaged_copy_to_available(): void
+    {
+        $damaged = InstanceState::create(['state' => 'damaged']);
+        $this->instance->update(['state_id' => $damaged->id]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/book-instances/{$this->instance->id}/restore")
+            ->assertStatus(200)
+            ->assertJsonPath('data.state.state', 'available');
+    }
+
     public function test_index_returns_borrowings_list(): void
     {
         $token = $this->librarian->createToken('test')->plainTextToken;
@@ -180,15 +381,13 @@ class BorrowingControllerTest extends TestCase
             ->assertJsonPath('data.0.id', $borrowing->id);
     }
 
-    public function test_checkout_fulfills_member_reservation_on_reserved_copy(): void
+    public function test_checkout_fails_when_copy_is_reserved_for_the_same_member(): void
     {
         $reservedState = InstanceState::create(['state' => 'reserved']);
         $this->instance->update(['state_id' => $reservedState->id]);
-
         $pending = ReservationState::create(['state' => 'pending']);
-        $fulfilled = ReservationState::create(['state' => 'fulfilled']);
 
-        $reservation = Reservation::create([
+        Reservation::create([
             'user_id'          => $this->member->id,
             'book_instance_id' => $this->instance->id,
             'state_id'         => $pending->id,
@@ -204,16 +403,7 @@ class BorrowingControllerTest extends TestCase
                 'book_instance_id' => $this->instance->id,
                 'end_date'         => now()->addDays(14)->toDateString(),
             ])
-            ->assertStatus(201);
-
-        $this->assertDatabaseHas('reservations', [
-            'id'       => $reservation->id,
-            'state_id' => $fulfilled->id,
-        ]);
-        $this->assertDatabaseHas('book_instances', [
-            'id'       => $this->instance->id,
-            'state_id' => InstanceState::where('state', 'borrowed')->value('id'),
-        ]);
+            ->assertStatus(422);
     }
 
     public function test_checkout_fails_when_copy_is_reserved_for_another_member(): void

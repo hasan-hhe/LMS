@@ -143,7 +143,6 @@ class AuthController extends Controller
             }
 
             $user = User::query()->where('email', $login)->first();
-            $notFoundMessage = 'البريد الإلكتروني غير موجود';
         } else {
             if (!preg_match('/^[0-9]+$/', $login)) {
                 return response()->json([
@@ -153,26 +152,27 @@ class AuthController extends Controller
             }
 
             $user = User::query()->where('phone', $login)->first();
-            $notFoundMessage = 'رقم الهاتف غير موجود';
         }
+
+        $invalidCredentials = 'البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة';
 
         if (!$user) {
             return response()->json([
                 'message' => 'error',
-                'body'    => $notFoundMessage,
-            ], 404);
+                'body'    => $invalidCredentials,
+            ], 401);
         }
 
         if (!Hash::check($request->password, $user->password_hash)) {
             return response()->json([
                 'message' => 'error',
-                'body'    => 'كلمة المرور غير صحيحة',
-            ], 400);
+                'body'    => $invalidCredentials,
+            ], 401);
         }
         $date1 = $user->participe_end_date;
-        if($user->role == 'MEMBER')
-            if($date1->lt(now()))
-                return ResponseHelper::unauthorized('يرجى تجديد الاستراك، لأن تاريخ اشتراكك منتهي');
+        if ($user->role == 'MEMBER' && $date1 && $date1->lt(now())) {
+            return ResponseHelper::unauthorized('يرجى تجديد الاشتراك، لأن تاريخ اشتراكك منتهي');
+        }
         $token = $user->createToken('api_token')->plainTextToken;
 
         return response()->json([

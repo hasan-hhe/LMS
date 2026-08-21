@@ -1,6 +1,19 @@
 (function () {
     'use strict';
 
+    function initReportTable(table) {
+        const $table = table && table.jquery ? table : $(table);
+        if (!$table.length || !$.fn.DataTable) return;
+        LmsHelpers.destroyDataTable($table);
+        $table.DataTable({
+            paging: true,
+            pageLength: 15,
+            searching: false,
+            info: true,
+            ordering: true,
+        });
+    }
+
     function formatNumber(value, decimals) {
         if (value === null || value === undefined || value === '') return '-';
         const num = parseFloat(value);
@@ -37,7 +50,7 @@
                     '</tr>';
             });
             $(body).html(html);
-            initDataTable($(body).closest('table')[0]);
+            initReportTable($(body).closest('table')[0]);
         }).catch(function (error) {
             if (error && error.response) {
                 LmsHelpers.handleApiError(error);
@@ -68,7 +81,7 @@
                     '</tr>';
             });
             $(body).html(html);
-            initDataTable($(body).closest('table')[0]);
+            initReportTable($(body).closest('table')[0]);
         }).catch(function (error) {
             if (error && error.response) {
                 LmsHelpers.handleApiError(error);

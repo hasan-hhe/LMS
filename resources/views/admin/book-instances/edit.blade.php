@@ -6,7 +6,7 @@
         @include('admin.components.page-header', [
             'title' => 'تعديل نسخة كتاب',
             'arr' => [
-                ['title' => 'نسخ الكتب', 'link' => route('admin.book-instances.index')],
+                ['title' => 'نسخ الكتب الاستعارة', 'link' => route('admin.book-instances.index')],
                 ['title' => 'تعديل', 'link' => ''],
             ],
         ])

@@ -117,6 +117,21 @@
             const settings = res.data || {};
             form.syp_per_point.value = settings.syp_per_point ?? '';
             form.reward_return_on_time.value = settings.reward_return_on_time ?? '';
+            if (form.fine_per_day_syp) {
+                form.fine_per_day_syp.value = settings.fine_per_day_syp ?? '';
+            }
+            if (form.fine_per_day_points) {
+                form.fine_per_day_points.value = settings.fine_per_day_points ?? '';
+            }
+            if (form.loan_period_days) {
+                form.loan_period_days.value = settings.loan_period_days ?? '';
+            }
+            if (form.membership_points) {
+                form.membership_points.value = settings.membership_points ?? '';
+            }
+            if (form.membership_days) {
+                form.membership_days.value = settings.membership_days ?? '';
+            }
         }).catch(LmsHelpers.handleApiError);
 
         LmsHelpers.bindBusyForm(form, function () {
@@ -124,10 +139,21 @@
             const data = {
                 syp_per_point: Number(form.syp_per_point.value),
                 reward_return_on_time: parseInt(form.reward_return_on_time.value, 10),
+                fine_per_day_syp: Number(form.fine_per_day_syp.value),
+                fine_per_day_points: parseInt(form.fine_per_day_points.value, 10),
             };
+            if (form.loan_period_days) {
+                data.loan_period_days = parseInt(form.loan_period_days.value, 10);
+            }
+            if (form.membership_points) {
+                data.membership_points = parseInt(form.membership_points.value, 10);
+            }
+            if (form.membership_days) {
+                data.membership_days = parseInt(form.membership_days.value, 10);
+            }
 
             return LmsApi.updatePointsSettings(data).then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم حفظ إعدادات النقاط'));
+                LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم حفظ الإعدادات العامة'));
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#pointsSettingsForm');
             });

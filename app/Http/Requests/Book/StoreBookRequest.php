@@ -14,6 +14,13 @@ class StoreBookRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('has_borrow_points') && ! $this->boolean('has_borrow_points')) {
+            $this->merge(['borrow_points' => 0]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -25,8 +32,12 @@ class StoreBookRequest extends FormRequest
             'discription' => 'required|string',
             'price' => 'required|numeric|min:0',
             'price_points' => 'nullable|integer|min:0',
-            'amount' => 'required|integer|min:1',
-            'copies_count' => 'nullable|integer|min:0|max:500',
+            'has_borrow_points' => 'sometimes|boolean',
+            'borrow_points' => $this->boolean('has_borrow_points')
+                ? 'required|integer|min:1'
+                : 'nullable|integer|min:0',
+            'amount' => 'required|integer|min:0',
+            'copies_count' => 'required|integer|min:0|max:500',
             'year_of_publishing' => 'required|string|max:4',
             'number_edition' => 'required|string|max:50',
             'cover_image' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
@@ -50,12 +61,16 @@ class StoreBookRequest extends FormRequest
             'price.numeric' => 'سعر الكتاب يجب أن يكون رقماً',
             'price.min' => 'سعر الكتاب يجب أن يكون أكبر من أو يساوي صفر',
             'price_points.integer' => 'سعر الكتاب بالنقاط يجب أن يكون رقماً صحيحاً',
-            'amount.required' => 'كمية الكتب مطلوبة',
-            'amount.integer' => 'كمية الكتب يجب أن تكون رقماً صحيحاً',
-            'amount.min' => 'كمية الكتب يجب أن تكون كتاباً واحداً على الأقل',
-            'copies_count.integer' => 'عدد النسخ يجب أن يكون رقماً صحيحاً',
-            'copies_count.min' => 'عدد النسخ لا يمكن أن يكون سالباً',
-            'copies_count.max' => 'عدد النسخ لا يمكن أن يتجاوز 500 نسخة',
+            'borrow_points.required' => 'حدد عدد نقاط الاستعارة',
+            'borrow_points.integer' => 'نقاط الاستعارة يجب أن تكون رقماً صحيحاً',
+            'borrow_points.min' => 'إذا كانت الاستعارة عليها نقاط فيجب أن تكون نقطة واحدة على الأقل',
+            'amount.required' => 'عدد نسخ البيع مطلوب',
+            'amount.integer' => 'عدد نسخ البيع يجب أن يكون رقماً صحيحاً',
+            'amount.min' => 'عدد نسخ البيع لا يمكن أن يكون سالباً',
+            'copies_count.required' => 'عدد نسخ الاستعارة مطلوب',
+            'copies_count.integer' => 'عدد نسخ الاستعارة يجب أن يكون رقماً صحيحاً',
+            'copies_count.min' => 'عدد نسخ الاستعارة لا يمكن أن يكون سالباً',
+            'copies_count.max' => 'عدد نسخ الاستعارة لا يمكن أن يتجاوز 500 نسخة',
             'year_of_publishing.required' => 'سنة النشر مطلوبة',
             'number_edition.required' => 'رقم الطبعة مطلوب',
             'cover_image.image' => 'الغلاف يجب أن يكون صورة',

@@ -60,17 +60,24 @@ class ResponseHelper
         return self::error($body, 422, $errors);
     }
 
+    public static function perPage(\Illuminate\Http\Request $request, int $default = 15, int $max = 100): int
+    {
+        return min($max, max(1, (int) $request->input('per_page', $default)));
+    }
+
     public static function paginated(ResourceCollection $collection, string $body = 'تم جلب البيانات بنجاح'): JsonResponse
     {
+        $paginator = $collection->resource;
+
         return response()->json([
             'message' => 'success',
             'body'    => $body,
-            'data'    => $collection->items(),
+            'data'    => $collection->resolve(),
             'meta'    => [
-                'current_page' => $collection->currentPage(),
-                'last_page'    => $collection->lastPage(),
-                'per_page'     => $collection->perPage(),
-                'total'        => $collection->total(),
+                'current_page' => method_exists($paginator, 'currentPage') ? $paginator->currentPage() : 1,
+                'last_page'    => method_exists($paginator, 'lastPage') ? $paginator->lastPage() : 1,
+                'per_page'     => method_exists($paginator, 'perPage') ? $paginator->perPage() : $collection->count(),
+                'total'        => method_exists($paginator, 'total') ? $paginator->total() : $collection->count(),
             ],
         ]);
     }

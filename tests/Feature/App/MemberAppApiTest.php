@@ -161,6 +161,60 @@ class MemberAppApiTest extends TestCase
             ->assertJsonPath('data.meta.total', 1);
     }
 
+    public function test_member_can_subscribe_membership_with_points(): void
+    {
+        /** @var User $member */
+        $member = User::factory()->create([
+            'role' => 'MEMBER',
+            'participe_end_date' => null,
+        ]);
+        UserPoint::create(['user_id' => $member->id, 'balance' => 40]);
+
+        $this->actingAs($member)
+            ->getJson('/api/v1/member/membership')
+            ->assertOk()
+            ->assertJsonPath('data.is_active', false)
+            ->assertJsonPath('data.points', 20)
+            ->assertJsonPath('data.days', 365);
+
+        $this->actingAs($member)
+            ->postJson('/api/v1/member/membership/subscribe')
+            ->assertOk()
+            ->assertJsonPath('data.membership.is_active', true)
+            ->assertJsonPath('data.balance', 20);
+
+        $this->assertSame(
+            now()->addDays(365)->toDateString(),
+            $member->fresh()->participe_end_date?->toDateString()
+        );
+    }
+
+    public function test_member_can_quote_borrowing_extension_points(): void
+    {
+        /** @var User $member */
+        $member = User::factory()->create(['role' => 'MEMBER']);
+        $librarian = User::factory()->create(['role' => 'LIBRARIAN']);
+        $instanceId = $this->createBookInstance();
+        $borrowing = Borrowing::create([
+            'member_id' => $member->id,
+            'librarian_id' => $librarian->id,
+            'book_instance_id' => $instanceId,
+            'start_date' => now(),
+            'end_date' => now()->addDays(7),
+            'due_date' => now()->addDays(7),
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+        $newEnd = now()->addDays(14)->toDateString();
+
+        $this->actingAs($member)
+            ->getJson("/api/v1/member/borrowings/{$borrowing->id}/extension-quote?new_end_date={$newEnd}")
+            ->assertOk()
+            ->assertJsonPath('data.can_extend', true)
+            ->assertJsonPath('data.days', 7)
+            ->assertJsonPath('data.points', 7);
+    }
+
     private function createBookInstance(): int
     {
         $authorId = DB::table('authers')->insertGetId(['firstname' => 'A', 'lastname' => 'B', 'nationality' => 'SY']);

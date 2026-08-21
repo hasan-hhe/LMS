@@ -32,6 +32,8 @@ class OrderControllerTest extends TestCase
         $this->member       = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);
         $this->pendingState = OrderState::create(['state' => 'pending']);
         OrderState::create(['state' => 'confirmed']);
+        OrderState::create(['state' => 'delivered']);
+        OrderState::create(['state' => 'cancelled']);
 
         $author   = Author::create(['firstname' => 'م', 'lastname' => 'ن', 'nationality' => 'أ']);
         $category = Category::create(['title' => 'عام', 'discription' => 'وصف']);
@@ -146,5 +148,83 @@ class OrderControllerTest extends TestCase
         $this->assertSame(500, UserPoint::where('user_id', $this->member->id)->value('balance'));
         $this->assertFalse(PointTransaction::where('reference_id', (string) $order->id)->exists());
         $this->assertSame($this->pendingState->id, $order->fresh()->state_id);
+    }
+
+    public function test_confirmed_order_can_be_marked_delivered(): void
+    {
+        $confirmed = OrderState::where('state', 'confirmed')->first();
+        $delivered = OrderState::where('state', 'delivered')->first();
+        $order = Order::create([
+            'user_id' => $this->member->id,
+            'state_id' => $confirmed->id,
+            'total_prices' => 50,
+            'total_points' => 1,
+            'total_amount' => 1,
+        ]);
+
+        $token = $this->admin->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/orders/{$order->id}/state", ['state_id' => $delivered->id])
+            ->assertStatus(200)
+            ->assertJsonPath('data.state.state', 'delivered');
+    }
+
+    public function test_cancel_confirmed_order_refunds_points_and_restocks(): void
+    {
+        $confirmed = OrderState::where('state', 'confirmed')->first();
+        $cancelled = OrderState::where('state', 'cancelled')->first();
+        $order = Order::create([
+            'user_id' => $this->member->id,
+            'state_id' => $this->pendingState->id,
+            'total_prices' => 100,
+            'total_points' => 2,
+            'total_amount' => 2,
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'book_ISBN' => $this->book->ISBN,
+            'price_once' => $this->book->price,
+            'count' => 2,
+        ]);
+
+        $token = $this->admin->createToken('test')->plainTextToken;
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/orders/{$order->id}/state", ['state_id' => $confirmed->id])
+            ->assertStatus(200);
+
+        $this->assertSame(8, $this->book->fresh()->amount);
+        $this->assertSame(498, UserPoint::where('user_id', $this->member->id)->value('balance'));
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/orders/{$order->id}/state", ['state_id' => $cancelled->id])
+            ->assertStatus(200)
+            ->assertJsonPath('data.state.state', 'cancelled');
+
+        $this->assertSame(10, $this->book->fresh()->amount);
+        $this->assertSame(500, UserPoint::where('user_id', $this->member->id)->value('balance'));
+        $this->assertDatabaseHas('point_transactions', [
+            'user_id' => $this->member->id,
+            'reference_id' => (string) $order->id,
+            'note' => 'استرداد نقاط طلب لم يُستلم',
+        ]);
+    }
+
+    public function test_cannot_deliver_pending_order(): void
+    {
+        $delivered = OrderState::where('state', 'delivered')->first();
+        $order = Order::create([
+            'user_id' => $this->member->id,
+            'state_id' => $this->pendingState->id,
+            'total_prices' => 50,
+            'total_points' => 1,
+            'total_amount' => 1,
+        ]);
+
+        $token = $this->admin->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/orders/{$order->id}/state", ['state_id' => $delivered->id])
+            ->assertStatus(422);
     }
 }

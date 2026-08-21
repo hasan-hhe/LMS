@@ -16,7 +16,7 @@ class FineController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = $request->only(['is_paid', 'member_id']);
+            $filters = $request->only(['is_paid', 'member_id', 'per_page']);
             $fines   = $this->fineService->listFines($filters);
 
             return ResponseHelper::paginated(
@@ -28,11 +28,18 @@ class FineController extends Controller
         }
     }
 
-    public function pay(int $id): JsonResponse
+    public function pay(Request $request, int $id): JsonResponse
     {
         try {
-            $fine = $this->fineService->payFine($id);
-            return ResponseHelper::success(new LateFineResource($fine), 'تم تسجيل دفع الغرامة بنجاح');
+            $method = $request->input('payment_method', 'points');
+            $fine = $this->fineService->payFine($id, is_string($method) ? $method : 'points');
+            $message = $method === 'cash'
+                ? 'تم تسجيل تحصيل الغرامة نقداً بالليرة السورية'
+                : ($fine->is_paid
+                    ? 'تم تسجيل دفع الغرامة بالنقاط بنجاح'
+                    : 'تم خصم المتوفر من النقاط، ويتبقى على العضو غرامة غير مسددة');
+
+            return ResponseHelper::success(new LateFineResource($fine), $message);
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }

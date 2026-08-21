@@ -8,10 +8,42 @@ use App\Http\Requests\DigitalAsset\UpsertDigitalAssetRequest;
 use App\Http\Resources\DigitalAssetResource;
 use App\Services\DigitalAssetService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DigitalAssetController extends Controller
 {
     public function __construct(private DigitalAssetService $digitalAssets) {}
+
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $assets = $this->digitalAssets->list($request->only(['search', 'per_page']));
+
+            return ResponseHelper::paginated(
+                DigitalAssetResource::collection($assets),
+                'تم جلب المحتوى الرقمي'
+            );
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function store(UpsertDigitalAssetRequest $request): JsonResponse
+    {
+        try {
+            $isbn = (string) $request->input('book_ISBN');
+            $asset = $this->digitalAssets->upsert(
+                $isbn,
+                $request->safe()->except(['pdf', 'audio', 'book_ISBN']),
+                $request->file('pdf'),
+                $request->file('audio'),
+            );
+
+            return ResponseHelper::created(new DigitalAssetResource($asset), 'تم حفظ المحتوى الرقمي');
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
+    }
 
     public function show(string $isbn): JsonResponse
     {

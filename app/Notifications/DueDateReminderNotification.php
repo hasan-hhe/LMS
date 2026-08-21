@@ -3,13 +3,14 @@
 namespace App\Notifications;
 
 use App\Models\Borrowing;
+use App\Notifications\Concerns\BrandedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class DueDateReminderNotification extends Notification
 {
-    use Queueable;
+    use BrandedMail, Queueable;
 
     public function __construct(public Borrowing $borrowing) {}
 
@@ -20,7 +21,7 @@ class DueDateReminderNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return $this->mail()
             ->subject('تذكير بموعد إعادة الكتاب')
             ->greeting('مرحباً '.$notifiable->fullName())
             ->line('موعد إعادة كتاب "'.$this->borrowing->bookInstance?->book?->title.'" هو غداً.')

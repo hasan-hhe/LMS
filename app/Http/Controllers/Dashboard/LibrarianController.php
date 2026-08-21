@@ -18,7 +18,7 @@ class LibrarianController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $librarians = $this->librarianService->listLibrarians($request->only(['search']));
+            $librarians = $this->librarianService->listLibrarians($request->only(['search', 'per_page']));
             return ResponseHelper::paginated(UserResource::collection($librarians), 'تم جلب قائمة أمناء المكتبة');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);

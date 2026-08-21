@@ -45,6 +45,7 @@ class BookControllerTest extends TestCase
             'discription'        => 'كتاب إسلامي في الأخلاق',
             'price'              => 29.99,
             'amount'             => 10,
+            'copies_count'       => 0,
             'year_of_publishing' => '2020',
             'number_edition'     => '1',
         ], $overrides);
@@ -72,10 +73,73 @@ class BookControllerTest extends TestCase
             ->assertJsonPath('data.title', 'إحياء علوم الدين');
 
         $this->assertDatabaseHas('books', ['ISBN' => '978-3-16-148410-0']);
-        $this->assertSame(10, BookInstance::where('book_ISBN', '978-3-16-148410-0')->count());
-        $this->assertDatabaseHas('book_instances', [
-            'book_ISBN' => '978-3-16-148410-0',
-            'condition' => 'new',
+        $this->assertSame(0, BookInstance::where('book_ISBN', '978-3-16-148410-0')->count());
+        $this->assertDatabaseHas('books', [
+            'ISBN' => '978-3-16-148410-0',
+            'amount' => 10,
+            'borrow_points' => 0,
+        ]);
+    }
+
+    public function test_store_creates_borrow_copies_from_copies_count_not_sale_stock(): void
+    {
+        $token = $this->admin->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/books', $this->validBookPayload([
+                'ISBN' => '978-sale-vs-borrow',
+                'amount' => 7,
+                'copies_count' => 2,
+            ]))
+            ->assertStatus(201)
+            ->assertJsonPath('data.sale_stock', 7)
+            ->assertJsonPath('data.copies_count', 2);
+
+        $this->assertDatabaseHas('books', ['ISBN' => '978-sale-vs-borrow', 'amount' => 7]);
+        $this->assertSame(2, BookInstance::where('book_ISBN', '978-sale-vs-borrow')->count());
+    }
+
+    public function test_staff_can_add_sale_stock(): void
+    {
+        $token = $this->admin->createToken('test')->plainTextToken;
+        Book::create($this->validBookPayload([
+            'ISBN' => '978-sale-stock',
+            'amount' => 4,
+            'cover_url' => '',
+            'rate_avg' => 0,
+        ]));
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/sale-stock', [
+                'book_ISBN' => '978-sale-stock',
+                'copies_count' => 3,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.sale_stock', 7);
+
+        $this->assertDatabaseHas('books', [
+            'ISBN' => '978-sale-stock',
+            'amount' => 7,
+        ]);
+    }
+
+    public function test_store_saves_borrow_points(): void
+    {
+        $token = $this->admin->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/books', $this->validBookPayload([
+                'ISBN' => '978-borrow-points',
+                'has_borrow_points' => true,
+                'borrow_points' => 12,
+            ]))
+            ->assertStatus(201)
+            ->assertJsonPath('data.borrow_points', 12)
+            ->assertJsonPath('data.has_borrow_points', true);
+
+        $this->assertDatabaseHas('books', [
+            'ISBN' => '978-borrow-points',
+            'borrow_points' => 12,
         ]);
     }
 

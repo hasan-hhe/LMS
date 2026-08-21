@@ -2,13 +2,14 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\BrandedMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ResetPasswordNotification extends Notification
 {
-    use Queueable;
+    use BrandedMail, Queueable;
 
     public function __construct(public string $token) {}
 
@@ -21,7 +22,7 @@ class ResetPasswordNotification extends Notification
     {
         $url = url('/reset-password?email='.urlencode($notifiable->email).'&token='.$this->token);
 
-        return (new MailMessage)
+        return $this->mail()
             ->subject('استعادة كلمة المرور')
             ->greeting('مرحباً '.$notifiable->fullName())
             ->line('طلبت إعادة تعيين كلمة المرور لحسابك.')

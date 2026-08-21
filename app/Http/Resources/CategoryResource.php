@@ -13,7 +13,7 @@ class CategoryResource extends JsonResource
             'id'          => $this->id,
             'title'       => $this->title,
             'description' => $this->discription,
-            'books_count' => $this->whenLoaded('books', fn() => $this->books->count()),
+            'books_count' => (int) ($this->books_count ?? ($this->relationLoaded('books') ? $this->books->count() : 0)),
         ];
     }
 }

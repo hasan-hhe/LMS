@@ -24,7 +24,9 @@ class LibrarianService
                 });
             }
 
-            return $query->paginate(15);
+            $perPage = min(100, max(1, (int) ($filters['per_page'] ?? 15)));
+
+            return $query->paginate($perPage);
         } catch (\Exception $e) {
             throw $e;
         }

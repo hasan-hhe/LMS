@@ -52,9 +52,21 @@ class Borrowing extends Model
         return $this->belongsTo(BookInstance::class, 'book_instance_id');
     }
 
+    public function fines()
+    {
+        return $this->hasMany(LateFine::class, 'borrowing_id');
+    }
+
     public function lateFine()
     {
-        return $this->hasOne(LateFine::class, 'borrowing_id');
+        return $this->hasOne(LateFine::class, 'borrowing_id')->where(function ($query) {
+            $query->where('type', 'late')->orWhereNull('type');
+        });
+    }
+
+    public function damageFine()
+    {
+        return $this->hasOne(LateFine::class, 'borrowing_id')->whereIn('type', ['damage', 'loss']);
     }
 
     public function editions()
@@ -70,5 +82,20 @@ class Borrowing extends Model
     public function isOverdue(): bool
     {
         return !$this->isReturned() && $this->end_date < now();
+    }
+
+    public function daysOverdue(): int
+    {
+        if (! $this->end_date) {
+            return 0;
+        }
+
+        $end = $this->end_date->copy()->startOfDay();
+        $today = now()->startOfDay();
+        if ($end->greaterThanOrEqualTo($today)) {
+            return 0;
+        }
+
+        return max(1, (int) $end->diffInDays($today, true));
     }
 }

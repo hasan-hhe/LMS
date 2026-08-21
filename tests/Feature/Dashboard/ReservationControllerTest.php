@@ -22,6 +22,7 @@ class ReservationControllerTest extends TestCase
     private User $librarian;
     private User $member;
     private BookInstance $instance;
+    private InstanceState $availableState;
     private ReservationState $pendingState;
     private ReservationState $cancelledState;
 
@@ -36,9 +37,9 @@ class ReservationControllerTest extends TestCase
         ReservationState::create(['state' => 'ready']);
         ReservationState::create(['state' => 'fulfilled']);
 
-        InstanceState::create(['state' => 'available']);
+        $this->availableState = InstanceState::create(['state' => 'available']);
         InstanceState::create(['state' => 'reserved']);
-        $state    = InstanceState::create(['state' => 'borrowed']);
+        InstanceState::create(['state' => 'borrowed']);
         $author   = Author::create(['firstname' => 'م', 'lastname' => 'ن', 'nationality' => 'أ']);
         $category = Category::create(['title' => 'عام', 'discription' => 'وصف']);
         $pub      = Publisher::create(['name' => 'نشر', 'location' => 'مكان']);
@@ -48,7 +49,7 @@ class ReservationControllerTest extends TestCase
             'amount' => 1, 'rate_avg' => 0, 'cover_url' => '', 'year_of_publishing' => '2020', 'number_edition' => '1',
         ]);
 
-        $this->instance = BookInstance::create(['book_ISBN' => $book->ISBN, 'state_id' => $state->id, 'condition' => 'new']);
+        $this->instance = BookInstance::create(['book_ISBN' => $book->ISBN, 'state_id' => $this->availableState->id, 'condition' => 'new']);
     }
 
     public function test_store_creates_reservation(): void
@@ -167,34 +168,32 @@ class ReservationControllerTest extends TestCase
 
     public function test_store_fails_when_member_exceeds_active_limit(): void
     {
-        for ($i = 1; $i <= 3; $i++) {
-            $book = Book::create([
-                'ISBN' => '978-limit-'.$i,
-                'auther_id' => $this->instance->book->auther_id,
-                'catagory_id' => $this->instance->book->catagory_id,
-                'publisher_id' => $this->instance->book->publisher_id,
-                'title' => 'ك'.$i,
-                'discription' => 'و',
-                'price' => 20,
-                'amount' => 1,
-                'rate_avg' => 0,
-                'cover_url' => '',
-                'year_of_publishing' => '2020',
-                'number_edition' => '1',
-            ]);
-            $copy = BookInstance::create([
-                'book_ISBN' => $book->ISBN,
-                'state_id' => $this->instance->state_id,
-                'condition' => 'new',
-            ]);
-            Reservation::create([
-                'user_id' => $this->member->id,
-                'book_instance_id' => $copy->id,
-                'state_id' => $this->pendingState->id,
-                'cause' => '',
-                'reserved_at' => now(),
-            ]);
-        }
+        $book = Book::create([
+            'ISBN' => '978-limit-1',
+            'auther_id' => $this->instance->book->auther_id,
+            'catagory_id' => $this->instance->book->catagory_id,
+            'publisher_id' => $this->instance->book->publisher_id,
+            'title' => 'ك1',
+            'discription' => 'و',
+            'price' => 20,
+            'amount' => 1,
+            'rate_avg' => 0,
+            'cover_url' => '',
+            'year_of_publishing' => '2020',
+            'number_edition' => '1',
+        ]);
+        $copy = BookInstance::create([
+            'book_ISBN' => $book->ISBN,
+            'state_id' => $this->instance->state_id,
+            'condition' => 'new',
+        ]);
+        Reservation::create([
+            'user_id' => $this->member->id,
+            'book_instance_id' => $copy->id,
+            'state_id' => $this->pendingState->id,
+            'cause' => '',
+            'reserved_at' => now(),
+        ]);
 
         $token = $this->librarian->createToken('test')->plainTextToken;
 
@@ -204,7 +203,7 @@ class ReservationControllerTest extends TestCase
                 'book_instance_id' => $this->instance->id,
             ])
             ->assertStatus(422)
-            ->assertJsonPath('body', 'وصل العضو للحد الأقصى للحجوزات النشطة (3)');
+            ->assertJsonPath('body', 'مسموح بحجز واحد فقط حتى ينتهي الحجز الحالي');
     }
 
     public function test_mark_ready_sets_pickup_deadline(): void
@@ -233,12 +232,11 @@ class ReservationControllerTest extends TestCase
         $this->assertNotNull($reservation->fresh()->expires_at);
     }
 
-    public function test_expire_command_cancels_unclaimed_ready_hold_and_promotes_next(): void
+    public function test_expire_command_cancels_unclaimed_ready_hold_and_releases_copy(): void
     {
         Notification::fake();
 
         $readyState = ReservationState::where('state', 'ready')->first();
-        $otherMember = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);
 
         $expired = Reservation::create([
             'user_id' => $this->member->id,
@@ -248,14 +246,6 @@ class ReservationControllerTest extends TestCase
             'reserved_at' => now()->subDays(3),
             'notified_at' => now()->subDays(3),
             'expires_at' => now()->subHour(),
-        ]);
-
-        $next = Reservation::create([
-            'user_id' => $otherMember->id,
-            'book_instance_id' => $this->instance->id,
-            'state_id' => $this->pendingState->id,
-            'cause' => '',
-            'reserved_at' => now()->subDay(),
         ]);
 
         $this->instance->update([
@@ -268,9 +258,62 @@ class ReservationControllerTest extends TestCase
             'id' => $expired->id,
             'state_id' => $this->cancelledState->id,
         ]);
-        $this->assertDatabaseHas('reservations', [
-            'id' => $next->id,
-            'state_id' => $readyState->id,
+        $this->assertDatabaseHas('book_instances', [
+            'id' => $this->instance->id,
+            'state_id' => $this->availableState->id,
         ]);
+    }
+
+    public function test_fulfill_creates_borrowing_and_marks_copy_borrowed(): void
+    {
+        $reservation = Reservation::create([
+            'user_id' => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+            'state_id' => $this->pendingState->id,
+            'cause' => '',
+            'reserved_at' => now(),
+        ]);
+
+        $this->instance->update([
+            'state_id' => InstanceState::where('state', 'reserved')->value('id'),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/reservations/{$reservation->id}/fulfill")
+            ->assertStatus(200)
+            ->assertJsonPath('data.id', $reservation->id)
+            ->assertJsonPath('data.borrowing.member.id', $this->member->id);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'state_id' => ReservationState::where('state', 'fulfilled')->value('id'),
+        ]);
+        $this->assertDatabaseHas('borrowings', [
+            'member_id' => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+        ]);
+        $this->assertDatabaseHas('book_instances', [
+            'id' => $this->instance->id,
+            'state_id' => InstanceState::where('state', 'borrowed')->value('id'),
+        ]);
+    }
+
+    public function test_store_fails_when_copy_is_borrowed(): void
+    {
+        $this->instance->update([
+            'state_id' => InstanceState::where('state', 'borrowed')->value('id'),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/reservations', [
+                'user_id' => $this->member->id,
+                'book_instance_id' => $this->instance->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('body', 'لا يمكن حجز نسخة مستعارة حالياً');
     }
 }

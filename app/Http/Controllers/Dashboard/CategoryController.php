@@ -25,7 +25,7 @@ class CategoryController extends Controller
                 });
             }
 
-            $categories = $query->paginate(15);
+            $categories = $query->paginate(ResponseHelper::perPage($request));
             return ResponseHelper::paginated(CategoryResource::collection($categories), 'تم جلب قائمة التصنيفات');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
