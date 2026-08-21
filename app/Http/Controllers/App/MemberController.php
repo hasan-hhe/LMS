@@ -100,7 +100,7 @@ class MemberController extends Controller
         if (!hash_equals($user->role, 'LIBRARIAN')) {
             return ResponseHelper::unauthorized();
         }
-        $members = User::query()->where('role', 'MEMBER')->paginate(15);
+        $members = User::query()->where('role', 'MEMBER')->with('userPoints')->paginate(15);
         return ResponseHelper::paginated(UserResource::collection($members));
         }
 

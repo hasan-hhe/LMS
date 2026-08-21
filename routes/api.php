@@ -2,15 +2,15 @@
 
 use App\Http\Controllers\App\Auth\AuthController;
 use App\Http\Controllers\App\BooksController;
-use App\Http\Controllers\App\DigitalAssetFileController;
 use App\Http\Controllers\App\FavoriteController;
 use App\Http\Controllers\App\MemberController;
 use App\Http\Controllers\App\MemberDashboardController;
 use App\Http\Controllers\App\MemberSelfServiceController;
 use App\Http\Controllers\App\OpacController;
 use App\Http\Controllers\App\ReviewController as MemberReviewController;
-use App\Http\Controllers\BorrowingController;
 use App\Http\Controllers\Dashboard\ReviewController;
+use App\Http\Controllers\BorrowingController;
+use App\Http\Controllers\ReservationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,15 +20,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1/auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']); // DONE
+    Route::post('/login', [AuthController::class, 'login']); //DONE
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/logout', [AuthController::class, 'logout']); // DONE
-        Route::get('/me', [AuthController::class, 'me']); // done
-        Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/logout', [AuthController::class, 'logout']); //DONE
+        Route::get('/me', [AuthController::class, 'me']); //done
     });
 });
 
@@ -36,11 +35,6 @@ Route::prefix('v1/opac/books')->group(function () {
     Route::get('/', [OpacController::class, 'index']);
     Route::get('/{ISBN}', [OpacController::class, 'show']);
 });
-
-Route::get('v1/books/{isbn}/digital/{type}', [DigitalAssetFileController::class, 'show'])
-    ->middleware('signed')
-    ->whereIn('type', ['pdf', 'audio'])
-    ->name('digital.file');
 
 /*
 |--------------------------------------------------------------------------
@@ -50,13 +44,13 @@ Route::get('v1/books/{isbn}/digital/{type}', [DigitalAssetFileController::class,
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('member')->group(function () {
-        Route::get('/dashboard', [MemberDashboardController::class, 'dashboard']); // done
-        Route::post('/register', [MemberController::class, 'register']); // done
-        Route::get('/get-members', [MemberController::class, 'index']); // done
-        Route::put('/update-member/{id}', [MemberController::class, 'updateMember']); //
-        Route::post('/control-state/{id}', [MemberController::class, 'ControlAccountState']); // done
-        Route::patch('/update-participe-date/{id}', [MemberController::class, 'updateParticipeDate']); //
-        Route::get('/get/{id}', [MemberController::class, 'get']); // done
+        Route::get('/dashboard', [MemberDashboardController::class, 'dashboard']); //done
+        Route::post('/register', [MemberController::class, 'register']); //done
+        Route::get('/get-members', [MemberController::class, 'index']); //done
+        Route::put('/update-member/{id}', [MemberController::class, 'updateMember']); // 
+        Route::post('/control-state/{id}', [MemberController::class, 'ControlAccountState']); //done
+        Route::patch('/update-participe-date/{id}', [MemberController::class, 'updateParticipeDate']); // 
+        Route::get('/get/{id}', [MemberController::class, 'get']); //done
     });
     Route::prefix('books')->group(function () {
         Route::get('/search', [BooksController::class, 'index']);    // search
@@ -65,15 +59,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/store', [BooksController::class, 'store']);   // add book
         Route::post('/update/{ISBN}', [BooksController::class, 'update']);
         Route::post('/destroy/{ISBN}', [BooksController::class, 'destroy']);
-        Route::post('/borrow', [BorrowingController::class, 'borrow']);
-        Route::post('/return/{id}', [BorrowingController::class, 'returnBook']);
-        Route::post('/my-borrowings', [BorrowingController::class, 'index']);
-        Route::post('/my-borrowings/{order}', [BorrowingController::class, 'index']);
-        Route::post('/extend-borrowing/{id}', [BorrowingController::class, 'extendBorrowing']);
+        });
+    Route::prefix('borrowing')->group(function () {
+        Route::post('/borrow',      [BorrowingController::class, 'borrow']);
+        Route::post('/return/{id}',      [BorrowingController::class, 'returnBook']);
+        Route::post('/my-borrowings',      [BorrowingController::class, 'index']);
+        Route::post('/my-borrowings/{order}',      [BorrowingController::class, 'index']);
+        Route::post('/extend-borrowing/{id}',      [BorrowingController::class, 'extendBorrowing']);
+        Route::post('/borrowings-today',      [BorrowingController::class, 'borrwoingToday']);
+        Route::post('/borrowings-late',      [BorrowingController::class, 'borrwoingLate']);
+        });
+    Route::prefix('reservation')->group(function () {
+        Route::get('/my-reservations',      [ReservationController::class, 'index']);        
+        Route::post('/reserve',      [ReservationController::class, 'store']);        
     });
-});
-
-Route::prefix('v1/member')
+    });
+        
+        Route::prefix('v1/member')
     ->middleware(['auth:sanctum', 'role:MEMBER'])
     ->controller(MemberSelfServiceController::class)
     ->group(function () {
@@ -97,20 +99,10 @@ Route::prefix('v1/member')
         Route::post('/orders/{id}/pay', 'payOrder');
 
         Route::put('/profile', 'updateProfile');
-    });
 
-Route::prefix('v1')
-    ->middleware(['auth:sanctum', 'role:MEMBER,LIBRARIAN,ADMIN'])
-    ->controller(MemberSelfServiceController::class)
-    ->group(function () {
         Route::get('/notifications', 'notifications');
         Route::post('/notifications/read-all', 'readAllNotifications');
         Route::post('/notifications/{id}/read', 'readNotification');
-
-        // Backward-compatible aliases used by older app builds
-        Route::get('/member/notifications', 'notifications');
-        Route::post('/member/notifications/read-all', 'readAllNotifications');
-        Route::post('/member/notifications/{id}/read', 'readNotification');
     });
 
 Route::prefix('v1')->middleware(['auth:sanctum', 'role:ADMIN,LIBRARIAN,MEMBER'])->group(function () {

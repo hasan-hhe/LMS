@@ -10,6 +10,7 @@ use App\Models\BookInstance;
 use App\Models\Borrowing;
 use App\Repositories\Interfaces\BorrowingRepositoryInterface;
 use App\Services\BorrowingService;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,10 +65,13 @@ class BorrowingController extends Controller
             return ResponseHelper::validationError('طريقة ترتيب البيانات مطلوبة');
         }
         if (hash_equals($user->role, 'MEMBER')) {
-           $borrowings = Borrowing::where('member_id', $user->id)->orderBy($request->parameter, $order)->paginate(15);
+           $borrowings = Borrowing::where('member_id', $user->id)
+           ->with('bookInstance', 'lateFine')
+           ->orderBy($request->parameter, $order)->paginate(15);
            return ResponseHelper::paginated(BorrowingResource::collection($borrowings));
            }
-           $borrowings = Borrowing::where('librarian_id', $user->id)->orderBy($request->parameter, $order)->paginate(15);
+           $borrowings = Borrowing::with('member', 'librarian', 'bookInstance', 'lateFine')
+           ->orderBy($request->parameter, $order)->paginate(15);
            return ResponseHelper::paginated(BorrowingResource::collection($borrowings));
     }
 
@@ -79,4 +83,24 @@ class BorrowingController extends Controller
             return ResponseHelper::error($e->getMessage(), 422);
         }
     }
+
+    public function borrwoingToday(Request $request){
+        $user = $request->user();
+        if (!hash_equals($user->role, 'LIBRARIAN')) {
+            return ResponseHelper::unauthorized();
+        }
+       $borrowings = Borrowing::whereDate('start_date', Carbon::today())->paginate(15);
+       return ResponseHelper::paginated(BorrowingResource::collection($borrowings));
+    }
+
+    public function borrwoingLate(Request $request){
+        $user = $request->user();
+        if (!hash_equals($user->role, 'LIBRARIAN')) {
+            return ResponseHelper::unauthorized();
+        }
+       $borrowings = Borrowing::where('end_date', '<' , Carbon::now())->whereNull('returned_at')->paginate(15);
+       return ResponseHelper::paginated(BorrowingResource::collection($borrowings));
+    }
+
+
 }
