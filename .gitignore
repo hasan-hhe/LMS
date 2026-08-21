@@ -23,8 +23,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-docs/*
-!docs/*.md
+docs/
 
 .cursor
 

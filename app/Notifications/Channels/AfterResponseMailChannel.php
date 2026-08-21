@@ -30,12 +30,12 @@ class AfterResponseMailChannel
             return;
         }
 
-        dispatch(function () use ($deliver): void {
+        defer(function () use ($deliver): void {
             try {
                 $deliver();
             } catch (Throwable $e) {
                 report($e);
             }
-        })->afterResponse();
+        });
     }
 }
