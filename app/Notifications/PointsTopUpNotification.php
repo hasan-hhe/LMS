@@ -15,7 +15,7 @@ class PointsTopUpNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'ably'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -32,6 +32,7 @@ class PointsTopUpNotification extends Notification
             'type' => 'points_top_up',
             'top_up_code_id' => $this->topUpCode->id,
             'points' => $this->topUpCode->points_value,
+            'title' => 'تم شحن رصيد النقاط',
             'message' => 'تم شحن رصيد النقاط',
         ];
     }

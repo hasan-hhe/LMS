@@ -80,6 +80,13 @@
                     </a>
                 </li>
 
+                <li class="nav-item {{ Route::is('admin.notifications') ? 'active' : '' }}" data-role="ADMIN,LIBRARIAN">
+                    <a href="{{ route('admin.notifications') }}">
+                        <i class="fas fa-bell"></i>
+                        <p>الإشعارات</p>
+                    </a>
+                </li>
+
                 <li class="nav-item {{ Route::is('admin.librarians.*') ? 'active' : '' }}" data-role="ADMIN">
                     <a href="{{ route('admin.librarians.index') }}">
                         <i class="fas fa-user-tie"></i>

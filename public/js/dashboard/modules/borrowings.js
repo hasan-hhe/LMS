@@ -47,7 +47,7 @@
         });
     }
 
-    function promptExtendBorrowing(borrowingId) {
+    function promptExtendBorrowing(borrowingId, trigger) {
         const wrapper = document.createElement('div');
         wrapper.innerHTML =
             '<label class="form-label">تاريخ التمديد الجديد</label>' +
@@ -73,13 +73,15 @@
                 return;
             }
 
-            LmsApi.extendBorrowing(borrowingId, {
-                new_end_date: newEndDate,
-                cause: cause || undefined,
-            }).then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                loadBorrowingsList(1);
-            }).catch(LmsHelpers.handleApiError);
+            LmsHelpers.withBusy(trigger, function () {
+                return LmsApi.extendBorrowing(borrowingId, {
+                    new_end_date: newEndDate,
+                    cause: cause || undefined,
+                }).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                    loadBorrowingsList(1);
+                }).catch(LmsHelpers.handleApiError);
+            });
         });
     }
 
@@ -124,12 +126,11 @@
             fillAvailableInstancesSelect(),
         ]).catch(LmsHelpers.handleApiError);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#borrowingForm');
             const data = LmsHelpers.formToObject(form);
 
-            LmsApi.createBorrowing(data).then(function (res) {
+            return LmsApi.createBorrowing(data).then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
@@ -145,6 +146,7 @@
             loadBorrowingsList(1);
 
             $(document).on('click', '.btn-return-borrowing', function () {
+                const btn = this;
                 const id = $(this).data('id');
                 swal('هل أنت متأكد من إعادة هذا الكتاب؟', {
                     icon: 'warning',
@@ -154,15 +156,17 @@
                     },
                 }).then(function (confirmed) {
                     if (!confirmed) return;
-                    LmsApi.returnBorrowing(id).then(function (res) {
-                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                        loadBorrowingsList(1);
-                    }).catch(LmsHelpers.handleApiError);
+                    LmsHelpers.withBusy(btn, function () {
+                        return LmsApi.returnBorrowing(id).then(function (res) {
+                            LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                            loadBorrowingsList(1);
+                        }).catch(LmsHelpers.handleApiError);
+                    });
                 });
             });
 
             $(document).on('click', '.btn-extend-borrowing', function () {
-                promptExtendBorrowing($(this).data('id'));
+                promptExtendBorrowing($(this).data('id'), this);
             });
         }
 

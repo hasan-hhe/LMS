@@ -55,14 +55,13 @@
 
         loadPublisherForm(window.LMS_ENTITY_ID);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#publisherForm');
             const data = LmsHelpers.formToObject(form);
             const id = window.LMS_ENTITY_ID;
             const request = id ? LmsApi.updatePublisher(id, data) : LmsApi.createPublisher(data);
 
-            request.then(function (res) {
+            return request.then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;

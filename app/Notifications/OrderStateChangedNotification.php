@@ -15,7 +15,7 @@ class OrderStateChangedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'ably'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -32,6 +32,7 @@ class OrderStateChangedNotification extends Notification
             'type' => 'order_state_changed',
             'order_id' => $this->order->id,
             'state' => $this->order->state?->state,
+            'title' => 'تحديث حالة الطلب',
             'message' => 'تم تحديث حالة طلبك',
         ];
     }

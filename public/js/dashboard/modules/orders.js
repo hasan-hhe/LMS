@@ -137,8 +137,7 @@
         initOrderItems();
         loadUsersSelect();
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#orderForm');
 
             const items = collectOrderItems();
@@ -152,7 +151,7 @@
                 items: items,
             };
 
-            LmsApi.createOrder(payload).then(function (res) {
+            return LmsApi.createOrder(payload).then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = ordersIndexUrl;
@@ -205,16 +204,19 @@
         });
 
         $('#btnUpdateOrderState').on('click', function () {
+            const btn = this;
             const stateId = parseInt($('#orderStateSelect').val(), 10);
             if (!stateId) {
                 LmsHelpers.notify('error', 'يرجى اختيار حالة');
                 return;
             }
 
-            LmsApi.updateOrderState(window.LMS_ORDER_ID, { state_id: stateId }).then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                initOrderShowReload();
-            }).catch(LmsHelpers.handleApiError);
+            LmsHelpers.withBusy(btn, function () {
+                return LmsApi.updateOrderState(window.LMS_ORDER_ID, { state_id: stateId }).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                    initOrderShowReload();
+                }).catch(LmsHelpers.handleApiError);
+            });
         });
     }
 

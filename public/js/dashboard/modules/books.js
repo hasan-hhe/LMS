@@ -128,6 +128,7 @@
         if (!isbn || !document.getElementById('digitalAssetForm')) return;
 
         $('#btnSaveDigital').on('click', function () {
+            const btn = this;
             const formData = new FormData();
             const pdf = document.getElementById('digital_pdf')?.files?.[0];
             const audio = document.getElementById('digital_audio')?.files?.[0];
@@ -140,10 +141,12 @@
             if (document.getElementById('digital_remove_audio')?.checked) {
                 formData.append('remove_audio', '1');
             }
-            LmsApi.upsertDigitalAsset(isbn, formData).then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                fillDigitalForm(res.data);
-            }).catch(LmsHelpers.handleApiError);
+            LmsHelpers.withBusy(btn, function () {
+                return LmsApi.upsertDigitalAsset(isbn, formData).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                    fillDigitalForm(res.data);
+                }).catch(LmsHelpers.handleApiError);
+            });
         });
 
         $('#btnDeleteDigital').on('click', function () {
@@ -162,14 +165,13 @@
 
         loadBookForm(window.LMS_BOOK_ISBN);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#bookForm');
             const formData = LmsHelpers.formToFormData(form);
             const isbn = window.LMS_BOOK_ISBN;
             const request = isbn ? LmsApi.updateBook(isbn, formData) : LmsApi.createBook(formData);
 
-            request.then(function (res) {
+            return request.then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = booksIndexUrl;

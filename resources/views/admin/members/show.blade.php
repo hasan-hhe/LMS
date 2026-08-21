@@ -104,6 +104,9 @@
                 </div>
                 <div class="card-footer">
                     <a href="{{ route('admin.members.edit', $member) }}" class="btn btn-primary">تعديل</a>
+                    <a href="{{ route('admin.notifications', ['user_id' => $member]) }}" class="btn btn-info">
+                        <i class="fas fa-bell"></i> إرسال إشعار
+                    </a>
                     <a href="{{ route('admin.members.index') }}" class="btn btn-secondary">رجوع</a>
                 </div>
             </div>

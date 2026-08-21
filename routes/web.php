@@ -67,6 +67,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::get('/reviews', [DashboardViewController::class, 'reviewsIndex'])->name('reviews.index');
 
+    Route::get('/notifications', [DashboardViewController::class, 'notifications'])->name('notifications');
+
     Route::get('/points/top-up-codes', [DashboardViewController::class, 'pointsTopUpCodes'])->name('points.top-up-codes');
     Route::get('/points/settings', [DashboardViewController::class, 'pointsSettings'])->name('points.settings');
 

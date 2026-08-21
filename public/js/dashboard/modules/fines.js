@@ -48,6 +48,7 @@
         LmsHelpers.bindTableFilters(finesFilterConfig, loadFinesList);
 
         $(document).on('click', '.btn-pay-fine', function () {
+            const btn = this;
             const id = $(this).data('id');
             swal('سيتم خصم قيمة الغرامة من رصيد نقاط العضو. هل تريد المتابعة؟', {
                 icon: 'warning',
@@ -57,10 +58,12 @@
                 },
             }).then(function (confirmed) {
                 if (!confirmed) return;
-                LmsApi.payFine(id).then(function (res) {
-                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                    loadFinesList(1);
-                }).catch(LmsHelpers.handleApiError);
+                LmsHelpers.withBusy(btn, function () {
+                    return LmsApi.payFine(id).then(function (res) {
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                        loadFinesList(1);
+                    }).catch(LmsHelpers.handleApiError);
+                });
             });
         });
     });

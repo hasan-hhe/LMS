@@ -15,7 +15,7 @@ class ReservationExpiredNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'ably'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -33,6 +33,7 @@ class ReservationExpiredNotification extends Notification
             'type' => 'reservation_expired',
             'reservation_id' => $this->reservation->id,
             'book_title' => $this->reservation->bookInstance?->book?->title,
+            'title' => 'انتهت مهلة استلام الحجز',
             'message' => 'انتهت مهلة استلام الحجز وتم إلغاؤه',
         ];
     }

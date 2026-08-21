@@ -56,6 +56,13 @@
             border-color: var(--lms-primary-dark) !important;
         }
 
+        button.btn[data-busy="1"],
+        .btn[data-busy="1"] {
+            pointer-events: none;
+            opacity: 0.8;
+            cursor: wait;
+        }
+
         .nav-item.active > a,
         .nav-item.active > a p,
         .nav-item.active > a i {

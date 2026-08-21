@@ -11,6 +11,7 @@ use App\Http\Controllers\Dashboard\FavoriteController;
 use App\Http\Controllers\Dashboard\FineController;
 use App\Http\Controllers\Dashboard\LibrarianController;
 use App\Http\Controllers\Dashboard\MemberController;
+use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\OrderController;
 use App\Http\Controllers\Dashboard\PointController;
 use App\Http\Controllers\Dashboard\PublisherController;
@@ -58,6 +59,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::get('books/{isbn}/digital', [DigitalAssetController::class, 'show']);
         Route::match(['post', 'put'], 'books/{isbn}/digital', [DigitalAssetController::class, 'upsert']);
         Route::delete('books/{isbn}/digital', [DigitalAssetController::class, 'destroy']);
+        Route::post('notifications/send', [NotificationController::class, 'send']);
         Route::get('favorites', [FavoriteController::class, 'index']);
         Route::get('reviews', [ReviewController::class, 'index']);
         Route::get('books/{isbn}/reviews', [ReviewController::class, 'byBook']);

@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Http\Controllers\Dashboard;
+
+use App\Helpers\ResponseHelper;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Notification\SendNotificationRequest;
+use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
+
+class NotificationController extends Controller
+{
+    public function __construct(private NotificationService $notifications) {}
+
+    public function send(SendNotificationRequest $request): JsonResponse
+    {
+        try {
+            $result = $this->notifications->send($request->validated(), (int) $request->user()->id);
+
+            return ResponseHelper::created($result, 'تم إرسال الإشعار إلى '.$result['sent_count'].' مستخدم');
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 422);
+        }
+    }
+}

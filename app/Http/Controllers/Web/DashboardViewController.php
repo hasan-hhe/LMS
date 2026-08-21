@@ -177,6 +177,11 @@ class DashboardViewController extends Controller
         return view('admin.reviews.index');
     }
 
+    public function notifications(): View
+    {
+        return view('admin.notifications.index');
+    }
+
     public function pointsTopUpCodes(): View
     {
         return view('admin.points.top-up-codes');

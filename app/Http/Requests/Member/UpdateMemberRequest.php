@@ -6,6 +6,7 @@ use App\Helpers\ResponseHelper;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class UpdateMemberRequest extends FormRequest
 {
@@ -16,13 +17,13 @@ class UpdateMemberRequest extends FormRequest
 
     public function rules(): array
     {
-        $memberId = $this->route('id');
+        $memberId = $this->route('member') ?? $this->route('id');
 
         return [
             'first_name'         => 'sometimes|string|max:100',
             'last_name'          => 'sometimes|string|max:100',
-            'email'              => "sometimes|email|unique:users,email,{$memberId}",
-            'phone'              => "sometimes|string|unique:users,phone,{$memberId}|regex:/^[0-9]+$/",
+            'email'              => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($memberId)],
+            'phone'              => ['sometimes', 'string', 'regex:/^[0-9]+$/', Rule::unique('users', 'phone')->ignore($memberId)],
             'adress'             => 'nullable|string|max:255',
             'photo_image'        => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'participe_end_date' => 'nullable|date',

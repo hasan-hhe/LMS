@@ -14,7 +14,7 @@ class ResetPasswordNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'ably'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -34,6 +34,7 @@ class ResetPasswordNotification extends Notification
     {
         return [
             'type' => 'password_reset',
+            'title' => 'استعادة كلمة المرور',
             'message' => 'تم إنشاء رمز استعادة كلمة المرور',
         ];
     }

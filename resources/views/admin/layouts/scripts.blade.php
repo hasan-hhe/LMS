@@ -19,6 +19,7 @@
         publishersIndex: @json(route('admin.publishers.index')),
         bookInstancesIndex: @json(route('admin.book-instances.index')),
         membersIndex: @json(route('admin.members.index')),
+        notifications: @json(route('admin.notifications')),
         librariansIndex: @json(route('admin.librarians.index')),
         borrowingsIndex: @json(route('admin.borrowings.index')),
         finesIndex: @json(route('admin.fines.index')),

@@ -15,7 +15,7 @@ class DueDateReminderNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'ably'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -34,6 +34,7 @@ class DueDateReminderNotification extends Notification
             'borrowing_id' => $this->borrowing->id,
             'book_title' => $this->borrowing->bookInstance?->book?->title,
             'due_date' => $this->borrowing->end_date?->toDateString(),
+            'title' => 'تذكير بموعد إعادة الكتاب',
             'message' => 'موعد إعادة الكتاب غداً',
         ];
     }

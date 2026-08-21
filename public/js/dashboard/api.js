@@ -187,6 +187,10 @@
         },
 
         updateMember(id, formData) {
+            if (formData instanceof FormData) {
+                formData.append('_method', 'PUT');
+                return apiClient.post('/members/' + id, formData).then(unwrap);
+            }
             return apiClient.put('/members/' + id, formData).then(unwrap);
         },
 
@@ -391,6 +395,10 @@
 
         deleteDigitalAsset(isbn) {
             return apiClient.delete('/books/' + encodeURIComponent(isbn) + '/digital').then(unwrap);
+        },
+
+        sendNotification(data) {
+            return apiClient.post('/notifications/send', data).then(unwrap);
         },
 
         getMemberFavorites(memberId, params) {

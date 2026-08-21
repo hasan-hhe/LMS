@@ -368,5 +368,98 @@
             }, 400);
             $(inputSelector).on('keyup', debounced);
         },
+
+        resolveButton(target) {
+            if (!target) return null;
+            if (target.jquery) return target[0] || null;
+            if (target.tagName === 'FORM') {
+                return target.querySelector('[type="submit"]');
+            }
+            return target.closest ? (target.closest('button, .btn, [type="submit"]') || target) : target;
+        },
+
+        busyLabelFor(button) {
+            const text = ((button && (button.dataset.originalText || button.textContent)) || '').replace(/\s+/g, ' ').trim();
+            if (text.includes('إرسال')) return 'جاري الإرسال...';
+            if (text.includes('تحديث') || text.includes('تعديل')) return 'جاري التحديث...';
+            if (text.includes('توليد')) return 'جاري التوليد...';
+            if (text.includes('دفع')) return 'جاري الدفع...';
+            if (text.includes('شحن')) return 'جاري الشحن...';
+            if (text.includes('دخول') || text.includes('تسجيل')) return 'جاري تسجيل الدخول...';
+            return 'جاري الحفظ...';
+        },
+
+        lockButton(target) {
+            const button = this.resolveButton(target);
+            if (!button) return null;
+            if (!button.dataset.originalHtml) {
+                button.dataset.originalHtml = button.innerHTML;
+                button.dataset.originalText = (button.textContent || '').replace(/\s+/g, ' ').trim();
+            }
+            button.dataset.busy = '1';
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>' + this.busyLabelFor(button);
+            return button;
+        },
+
+        unlockButton(target) {
+            const button = this.resolveButton(target);
+            if (!button) return;
+            button.dataset.busy = '0';
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            if (button.dataset.originalHtml) {
+                button.innerHTML = button.dataset.originalHtml;
+            }
+        },
+
+        isBusy(target) {
+            const button = this.resolveButton(target);
+            return !!(button && button.dataset.busy === '1');
+        },
+
+        withBusy(target, work) {
+            const button = this.resolveButton(target);
+            if (this.isBusy(button)) {
+                return Promise.resolve();
+            }
+            this.lockButton(button);
+            return Promise.resolve()
+                .then(work)
+                .catch(function () {})
+                .finally(function () {
+                    LmsHelpers.unlockButton(button);
+                });
+        },
+
+        bindBusyForm(form, handler) {
+            if (!form) return;
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                const button = event.submitter || form.querySelector('[type="submit"]');
+                if (LmsHelpers.isBusy(button)) {
+                    return;
+                }
+                LmsHelpers.lockButton(button);
+                Promise.resolve(handler.call(form, event, form))
+                    .catch(function () {})
+                    .finally(function () {
+                        if (document.body.contains(button)) {
+                            LmsHelpers.unlockButton(button);
+                        }
+                    });
+            });
+        },
     };
+
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!form || form.tagName !== 'FORM') return;
+        const button = event.submitter || form.querySelector('[type="submit"]');
+        if (button && button.dataset.busy === '1') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
 })();

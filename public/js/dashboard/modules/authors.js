@@ -57,14 +57,13 @@
 
         loadAuthorForm(window.LMS_ENTITY_ID);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#authorForm');
             const data = LmsHelpers.formToObject(form);
             const id = window.LMS_ENTITY_ID;
             const request = id ? LmsApi.updateAuthor(id, data) : LmsApi.createAuthor(data);
 
-            request.then(function (res) {
+            return request.then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;

@@ -74,12 +74,11 @@
             fillBookInstancesSelect(),
         ]).catch(LmsHelpers.handleApiError);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#reservationForm');
             const data = LmsHelpers.formToObject(form);
 
-            LmsApi.createReservation(data).then(function (res) {
+            return LmsApi.createReservation(data).then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
@@ -95,29 +94,38 @@
             loadReservationsList({ page: 1 });
 
             $(document).on('click', '.btn-cancel-reservation', function () {
+                const btn = this;
                 const id = $(this).data('id');
                 confirmDelete('هل أنت متأكد من إلغاء هذا الحجز؟', function () {
-                    LmsApi.cancelReservation(id).then(function (res) {
+                    LmsHelpers.withBusy(btn, function () {
+                        return LmsApi.cancelReservation(id).then(function (res) {
+                            LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                            loadReservationsList({ page: 1 });
+                        }).catch(LmsHelpers.handleApiError);
+                    });
+                });
+            });
+
+            $(document).on('click', '.btn-ready-reservation', function () {
+                const btn = this;
+                const id = $(this).data('id');
+                LmsHelpers.withBusy(btn, function () {
+                    return LmsApi.markReservationReady(id).then(function (res) {
                         LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                         loadReservationsList({ page: 1 });
                     }).catch(LmsHelpers.handleApiError);
                 });
             });
 
-            $(document).on('click', '.btn-ready-reservation', function () {
-                const id = $(this).data('id');
-                LmsApi.markReservationReady(id).then(function (res) {
-                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                    loadReservationsList({ page: 1 });
-                }).catch(LmsHelpers.handleApiError);
-            });
-
             $(document).on('click', '.btn-fulfill-reservation', function () {
+                const btn = this;
                 const id = $(this).data('id');
-                LmsApi.fulfillReservation(id).then(function (res) {
-                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                    loadReservationsList({ page: 1 });
-                }).catch(LmsHelpers.handleApiError);
+                LmsHelpers.withBusy(btn, function () {
+                    return LmsApi.fulfillReservation(id).then(function (res) {
+                        LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
+                        loadReservationsList({ page: 1 });
+                    }).catch(LmsHelpers.handleApiError);
+                });
             });
         }
 

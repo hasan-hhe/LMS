@@ -88,8 +88,7 @@
 
         loadBookInstanceForm(window.LMS_ENTITY_ID);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#bookInstanceForm');
             const id = window.LMS_ENTITY_ID;
             const data = LmsHelpers.formToObject(form);
@@ -97,7 +96,7 @@
                 ? LmsApi.updateBookInstance(id, { state_id: data.state_id, condition: data.condition })
                 : LmsApi.createBookInstance(data);
 
-            request.then(function (res) {
+            return request.then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;

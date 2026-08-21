@@ -6,12 +6,9 @@
     }
 
     function runDownload(button, download) {
-        button.disabled = true;
-        download()
-            .catch(LmsHelpers.handleApiError)
-            .finally(function () {
-                button.disabled = false;
-            });
+        return LmsHelpers.withBusy(button, function () {
+            return download().catch(LmsHelpers.handleApiError);
+        });
     }
 
     runWhenDashboardReady(function () {

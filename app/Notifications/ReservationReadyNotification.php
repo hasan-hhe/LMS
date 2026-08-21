@@ -15,7 +15,7 @@ class ReservationReadyNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'ably'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -33,6 +33,7 @@ class ReservationReadyNotification extends Notification
             'type' => 'reservation_ready',
             'reservation_id' => $this->reservation->id,
             'book_title' => $this->reservation->bookInstance?->book?->title,
+            'title' => 'حجزك جاهز للاستلام',
             'message' => 'حجزك جاهز للاستلام',
         ];
     }

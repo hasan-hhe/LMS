@@ -66,8 +66,7 @@
 
         loadLibrarianForm(window.LMS_LIBRARIAN_ID);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#librarianForm');
             const formData = LmsHelpers.formToFormData(form);
             const librarianId = window.LMS_LIBRARIAN_ID;
@@ -75,7 +74,7 @@
                 ? LmsApi.updateLibrarian(librarianId, formData)
                 : LmsApi.createLibrarian(formData);
 
-            request.then(function (res) {
+            return request.then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;

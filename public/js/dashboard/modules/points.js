@@ -87,8 +87,7 @@
             loadTopUpCodes(1);
         });
 
-        form.addEventListener('submit', function (event) {
-            event.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#generateTopUpCodesForm');
             const data = LmsHelpers.formToObject(form);
             data.count = parseInt(data.count, 10);
@@ -100,7 +99,7 @@
                 delete data.user_id;
             }
 
-            LmsApi.generateTopUpCodes(data).then(function (res) {
+            return LmsApi.generateTopUpCodes(data).then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم توليد أكواد الشحن'));
                 form.reset();
                 loadTopUpCodes(1);
@@ -120,15 +119,14 @@
             form.reward_return_on_time.value = settings.reward_return_on_time ?? '';
         }).catch(LmsHelpers.handleApiError);
 
-        form.addEventListener('submit', function (event) {
-            event.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#pointsSettingsForm');
             const data = {
                 syp_per_point: Number(form.syp_per_point.value),
                 reward_return_on_time: parseInt(form.reward_return_on_time.value, 10),
             };
 
-            LmsApi.updatePointsSettings(data).then(function (res) {
+            return LmsApi.updatePointsSettings(data).then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم حفظ إعدادات النقاط'));
             }).catch(function (error) {
                 LmsHelpers.handleApiError(error, '#pointsSettingsForm');

@@ -69,8 +69,7 @@
 
         loadMemberForm(window.LMS_MEMBER_ID);
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+        LmsHelpers.bindBusyForm(form, function () {
             LmsHelpers.clearFormErrors('#memberForm');
             const formData = LmsHelpers.formToFormData(form);
             const memberId = window.LMS_MEMBER_ID;
@@ -78,7 +77,7 @@
                 ? LmsApi.updateMember(memberId, formData)
                 : LmsApi.createMember(formData);
 
-            request.then(function (res) {
+            return request.then(function (res) {
                 LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
                 setTimeout(function () {
                     window.location.href = indexUrl;
@@ -137,8 +136,12 @@
             loadMemberPointsHistory(1);
         });
 
-        $('#btnMemberTopUp').on('click', promptMemberTopUp);
-        $('#btnAdjustMemberPoints').on('click', promptMemberPointsAdjustment);
+        $('#btnMemberTopUp').on('click', function () {
+            promptMemberTopUp(this);
+        });
+        $('#btnAdjustMemberPoints').on('click', function () {
+            promptMemberPointsAdjustment(this);
+        });
     }
 
     function loadMemberPointsBalance() {
@@ -152,7 +155,7 @@
         });
     }
 
-    function promptMemberTopUp() {
+    function promptMemberTopUp(trigger) {
         const wrapper = document.createElement('div');
         wrapper.innerHTML =
             '<label class="form-label">كود الشحن</label>' +
@@ -172,15 +175,17 @@
                 LmsHelpers.notify('error', 'كود الشحن مطلوب');
                 return;
             }
-            LmsApi.topUpPoints({ code: code, member_id: window.LMS_MEMBER_ID }).then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم شحن رصيد النقاط'));
-                loadMemberPointsBalance();
-                loadMemberPointsHistory(1);
-            }).catch(LmsHelpers.handleApiError);
+            LmsHelpers.withBusy(trigger, function () {
+                return LmsApi.topUpPoints({ code: code, member_id: window.LMS_MEMBER_ID }).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم شحن رصيد النقاط'));
+                    loadMemberPointsBalance();
+                    loadMemberPointsHistory(1);
+                }).catch(LmsHelpers.handleApiError);
+            });
         });
     }
 
-    function promptMemberPointsAdjustment() {
+    function promptMemberPointsAdjustment(trigger) {
         const wrapper = document.createElement('div');
         wrapper.innerHTML =
             '<label class="form-label">عدد النقاط (موجب للإضافة وسالب للخصم)</label>' +
@@ -203,15 +208,17 @@
                 LmsHelpers.notify('error', 'أدخل عدداً صحيحاً غير صفري مع سبب التعديل');
                 return;
             }
-            LmsApi.adjustPoints({
-                member_id: window.LMS_MEMBER_ID,
-                points: points,
-                note: note,
-            }).then(function (res) {
-                LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم تعديل رصيد النقاط'));
-                loadMemberPointsBalance();
-                loadMemberPointsHistory(1);
-            }).catch(LmsHelpers.handleApiError);
+            LmsHelpers.withBusy(trigger, function () {
+                return LmsApi.adjustPoints({
+                    member_id: window.LMS_MEMBER_ID,
+                    points: points,
+                    note: note,
+                }).then(function (res) {
+                    LmsHelpers.notify('success', LmsHelpers.responseMessage(res, 'تم تعديل رصيد النقاط'));
+                    loadMemberPointsBalance();
+                    loadMemberPointsHistory(1);
+                }).catch(LmsHelpers.handleApiError);
+            });
         });
     }
 

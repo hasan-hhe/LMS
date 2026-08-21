@@ -30,7 +30,9 @@ class MemberService
                 });
             }
 
-            return $query->paginate(15);
+            $perPage = min(500, max(1, (int) ($filters['per_page'] ?? 15)));
+
+            return $query->paginate($perPage);
         } catch (\Exception $e) {
             throw $e;
         }
@@ -89,6 +91,7 @@ class MemberService
                 $data['photo_url'] = $this->storeProfilePhoto($photoFile);
             }
 
+            unset($data['photo_image']);
             $member->update($data);
 
             DB::commit();

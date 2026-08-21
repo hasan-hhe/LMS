@@ -22,7 +22,7 @@ class MemberController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $members = $this->memberService->listMembers($request->only(['search']));
+            $members = $this->memberService->listMembers($request->only(['search', 'per_page']));
             return ResponseHelper::paginated(UserResource::collection($members), 'تم جلب قائمة الأعضاء');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);

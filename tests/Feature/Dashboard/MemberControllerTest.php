@@ -84,6 +84,77 @@ class MemberControllerTest extends TestCase
             ->assertJsonPath('data.first_name', 'فاطمة');
     }
 
+    public function test_update_changes_member_email(): void
+    {
+        $member = User::factory()->create([
+            'role'          => 'MEMBER',
+            'email'         => 'old-member@example.com',
+            'password_hash' => bcrypt('p'),
+        ]);
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson("/api/v1/members/{$member->id}", ['email' => 'new-member@example.com'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.email', 'new-member@example.com');
+
+        $this->assertDatabaseHas('users', [
+            'id'    => $member->id,
+            'email' => 'new-member@example.com',
+        ]);
+    }
+
+    public function test_update_allows_keeping_the_same_email(): void
+    {
+        $member = User::factory()->create([
+            'role'          => 'MEMBER',
+            'email'         => 'keep@example.com',
+            'password_hash' => bcrypt('p'),
+        ]);
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson("/api/v1/members/{$member->id}", [
+                'email'      => 'keep@example.com',
+                'first_name' => 'فاطمة',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.email', 'keep@example.com')
+            ->assertJsonPath('data.first_name', 'فاطمة');
+    }
+
+    public function test_update_rejects_duplicate_email(): void
+    {
+        User::factory()->create(['email' => 'taken@example.com', 'password_hash' => bcrypt('p')]);
+        $member = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);
+        $token  = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->putJson("/api/v1/members/{$member->id}", ['email' => 'taken@example.com'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'error');
+    }
+
+    public function test_update_accepts_method_spoofed_form_data(): void
+    {
+        $member = User::factory()->create([
+            'role'          => 'MEMBER',
+            'email'         => 'form@example.com',
+            'password_hash' => bcrypt('p'),
+        ]);
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->post("/api/v1/members/{$member->id}", [
+                '_method'    => 'PUT',
+                'email'      => 'form-updated@example.com',
+                'first_name' => 'نورة',
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.email', 'form-updated@example.com')
+            ->assertJsonPath('data.first_name', 'نورة');
+    }
+
     public function test_destroy_deletes_member(): void
     {
         $member = User::factory()->create(['role' => 'MEMBER', 'password_hash' => bcrypt('p')]);

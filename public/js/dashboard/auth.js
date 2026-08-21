@@ -19,15 +19,12 @@
                 return;
             }
 
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
+            LmsHelpers.bindBusyForm(form, function () {
                 LmsHelpers.clearFormErrors('#loginForm');
                 const email = form.email.value;
                 const password = form.password.value;
-                const submitBtn = form.querySelector('[type="submit"]');
-                submitBtn.disabled = true;
 
-                LmsApi.login(email, password).then(function (res) {
+                return LmsApi.login(email, password).then(function (res) {
                     const user = res.data?.user;
                     const token = res.data?.token;
                     if (!user || !token) {
@@ -43,8 +40,6 @@
                     setTimeout(redirectToDashboard, 500);
                 }).catch(function (error) {
                     LmsHelpers.handleApiError(error, '#loginForm');
-                }).finally(function () {
-                    submitBtn.disabled = false;
                 });
             });
         },
