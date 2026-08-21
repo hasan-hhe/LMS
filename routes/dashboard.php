@@ -66,7 +66,6 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::get('points/history', [PointController::class, 'history']);
         Route::post('points/top-up', [TopUpCodeController::class, 'redeem']);
         Route::get('top-up-codes', [TopUpCodeController::class, 'index']);
-        Route::post('top-up-codes/generate', [TopUpCodeController::class, 'generate']);
     });
 
     /*
@@ -85,11 +84,16 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     | Librarians — Admin Only
     |--------------------------------------------------------------------------
     */
+    Route::middleware('role:ADMIN,LIBRARIAN')->group(function () {
+        Route::get('points/settings', [PointController::class, 'settings']);
+        Route::get('order-states', [OrderController::class, 'states']);
+    });
+
     Route::middleware('role:ADMIN')->group(function () {
         Route::apiResource('librarians', LibrarianController::class);
-        Route::get('points/settings', [PointController::class, 'settings']);
         Route::put('points/settings', [PointController::class, 'updateSettings']);
         Route::post('points/adjust', [PointController::class, 'adjust']);
+        Route::post('top-up-codes/generate', [TopUpCodeController::class, 'generate']);
     });
 
     /*

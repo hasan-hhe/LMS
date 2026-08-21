@@ -7,7 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ReservationReadyNotification extends Notification
+class ReservationExpiredNotification extends Notification
 {
     use Queueable;
 
@@ -21,19 +21,19 @@ class ReservationReadyNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('حجزك جاهز للاستلام')
+            ->subject('انتهت مهلة استلام الحجز')
             ->greeting('مرحباً '.$notifiable->fullName())
-            ->line('أصبح كتاب "'.$this->reservation->bookInstance?->book?->title.'" جاهزاً للاستلام.')
-            ->line('يرجى استلامه خلال 48 ساعة وإلا سيُلغى الحجز تلقائياً.');
+            ->line('انتهت مهلة استلام كتاب "'.$this->reservation->bookInstance?->book?->title.'" ولم يتم استلامه.')
+            ->line('تم إلغاء الحجز وإتاحة النسخة لعضو آخر.');
     }
 
     public function toArray(object $notifiable): array
     {
         return [
-            'type' => 'reservation_ready',
+            'type' => 'reservation_expired',
             'reservation_id' => $this->reservation->id,
             'book_title' => $this->reservation->bookInstance?->book?->title,
-            'message' => 'حجزك جاهز للاستلام',
+            'message' => 'انتهت مهلة استلام الحجز وتم إلغاؤه',
         ];
     }
 }

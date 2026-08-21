@@ -17,11 +17,13 @@ class Reservation extends Model
         'cause',
         'notified_at',
         'reserved_at',
+        'expires_at',
     ];
 
     protected $casts = [
         'notified_at' => 'datetime',
         'reserved_at' => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     public function user()

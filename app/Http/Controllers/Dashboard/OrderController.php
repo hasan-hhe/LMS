@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\StoreOrderRequest;
 use App\Http\Requests\Order\UpdateOrderStateRequest;
 use App\Http\Resources\OrderResource;
+use App\Models\OrderState;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,14 @@ use Illuminate\Http\Request;
 class OrderController extends Controller
 {
     public function __construct(private OrderService $orderService) {}
+
+    public function states(): JsonResponse
+    {
+        return ResponseHelper::success(
+            OrderState::query()->orderBy('id')->get(['id', 'state']),
+            'تم جلب حالات الطلب'
+        );
+    }
 
     public function index(Request $request): JsonResponse
     {

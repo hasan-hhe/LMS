@@ -105,6 +105,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/notifications/{id}/read', 'readNotification');
     });
 
+Route::prefix('v1')
+    ->middleware(['auth:sanctum', 'role:ADMIN,LIBRARIAN'])
+    ->controller(MemberSelfServiceController::class)
+    ->group(function () {
+        Route::get('/notifications', 'notifications');
+        Route::post('/notifications/read-all', 'readAllNotifications');
+        Route::post('/notifications/{id}/read', 'readNotification');
+    });
+
 Route::prefix('v1')->middleware(['auth:sanctum', 'role:ADMIN,LIBRARIAN,MEMBER'])->group(function () {
     Route::get('/books/{isbn}/reviews', [ReviewController::class, 'byBook']);
 });

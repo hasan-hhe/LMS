@@ -14,6 +14,7 @@ class ReservationResource extends JsonResource
             'cause'       => $this->cause,
             'notified_at' => $this->notified_at?->toDateTimeString(),
             'reserved_at' => $this->reserved_at?->toDateTimeString(),
+            'expires_at'  => $this->expires_at?->toDateTimeString(),
             'state'       => $this->whenLoaded('state', fn() => [
                 'id'    => $this->state->id,
                 'state' => $this->state->state,

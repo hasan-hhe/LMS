@@ -6,12 +6,17 @@ use App\Models\BookInstance;
 use App\Models\InstanceState;
 use App\Models\Reservation;
 use App\Models\ReservationState;
+use App\Notifications\ReservationExpiredNotification;
 use App\Notifications\ReservationReadyNotification;
 use App\Repositories\Interfaces\ReservationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
 class ReservationService
 {
+    public const MAX_ACTIVE_RESERVATIONS = 3;
+
+    public const READY_HOLD_HOURS = 48;
+
     public function __construct(private ReservationRepositoryInterface $reservationRepository) {}
 
     public function listReservations(array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
@@ -27,12 +32,13 @@ class ReservationService
     {
         DB::beginTransaction();
         try {
-            $this->validateNoExistingReservation($data['user_id'], $data['book_instance_id']);
-
             $instance = BookInstance::with('state')->find($data['book_instance_id']);
             if (!$instance) {
                 throw new \Exception('نسخة الكتاب غير موجودة');
             }
+
+            $this->validateNoExistingReservation($data['user_id'], $instance);
+            $this->validateActiveReservationLimit($data['user_id']);
 
             $pendingState = $this->findOrFailReservationState('pending');
 
@@ -83,6 +89,7 @@ class ReservationService
             $updated = $this->reservationRepository->update($reservation, [
                 'state_id'    => $readyState->id,
                 'notified_at' => now(),
+                'expires_at'  => now()->addHours(self::READY_HOLD_HOURS),
             ]);
 
             $this->setInstanceState($instance, 'reserved');
@@ -146,6 +153,7 @@ class ReservationService
 
             $updated = $this->reservationRepository->update($reservation, [
                 'state_id' => $cancelledState->id,
+                'expires_at' => null,
             ]);
 
             $instance = $reservation->bookInstance;
@@ -168,6 +176,40 @@ class ReservationService
         }
     }
 
+    public function expireUnclaimedReservations(): int
+    {
+        $expired = Reservation::with(['user', 'bookInstance.book', 'state'])
+            ->whereHas('state', fn ($q) => $q->where('state', 'ready'))
+            ->where(function ($q) {
+                $q->where('expires_at', '<=', now())
+                    ->orWhere(function ($inner) {
+                        $inner->whereNull('expires_at')
+                            ->where('notified_at', '<=', now()->subHours(self::READY_HOLD_HOURS));
+                    });
+            })
+            ->get();
+
+        $count = 0;
+        foreach ($expired as $reservation) {
+            $instanceId = $reservation->book_instance_id;
+            $user = $reservation->user;
+            $this->cancelReservation($reservation->id);
+            try {
+                $user?->notify(new ReservationExpiredNotification($reservation->fresh(['bookInstance.book'])));
+            } catch (\Throwable $notificationError) {
+                report($notificationError);
+            }
+
+            $next = $this->reservationRepository->getNextInQueue($instanceId);
+            if ($next) {
+                $this->markReady($next->id);
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
     private function setInstanceState(BookInstance $instance, string $stateName): void
     {
         $state = InstanceState::where('state', $stateName)->first();
@@ -177,15 +219,35 @@ class ReservationService
         $instance->update(['state_id' => $state->id]);
     }
 
-    private function validateNoExistingReservation(int $userId, int $bookInstanceId): void
+    private function validateNoExistingReservation(int $userId, BookInstance $instance): void
     {
-        $exists = Reservation::where('user_id', $userId)
-            ->where('book_instance_id', $bookInstanceId)
+        $sameCopy = Reservation::where('user_id', $userId)
+            ->where('book_instance_id', $instance->id)
             ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
             ->exists();
 
-        if ($exists) {
+        if ($sameCopy) {
             throw new \Exception('لديك حجز نشط مسبق لهذه النسخة');
+        }
+
+        $sameTitle = Reservation::where('user_id', $userId)
+            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
+            ->whereHas('bookInstance', fn ($q) => $q->where('book_ISBN', $instance->book_ISBN))
+            ->exists();
+
+        if ($sameTitle) {
+            throw new \Exception('لديك حجز نشط مسبق لنفس الكتاب');
+        }
+    }
+
+    private function validateActiveReservationLimit(int $userId): void
+    {
+        $activeCount = Reservation::where('user_id', $userId)
+            ->whereHas('state', fn ($q) => $q->whereIn('state', ['pending', 'ready']))
+            ->count();
+
+        if ($activeCount >= self::MAX_ACTIVE_RESERVATIONS) {
+            throw new \Exception('وصل العضو للحد الأقصى للحجوزات النشطة ('.self::MAX_ACTIVE_RESERVATIONS.')');
         }
     }
 
