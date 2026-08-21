@@ -58,6 +58,7 @@
                     '<td>' + (order.total_amount || 0) + '</td>' +
                     '<td>' + (order.total_prices || 0) + '</td>' +
                     '<td>' + (order.total_points ?? 0) + '</td>' +
+                    '<td>' + (order.pickup_expires_at ? LmsHelpers.formatDate(order.pickup_expires_at) : '-') + '</td>' +
                     '<td>' +
                     '<a href="' + showBaseUrl + '/' + order.id + '" class="btn btn-sm btn-info"><i class="fa fa-eye"></i></a>' +
                     '</td></tr>';
@@ -188,6 +189,12 @@
                 '<div class="col-md-6"><p><strong>إجمالي الكمية:</strong> ' + (order.total_amount || 0) + '</p></div>' +
                 '<div class="col-md-6"><p><strong>إجمالي السعر:</strong> ' + (order.total_prices || 0) + '</p></div>' +
                 '<div class="col-md-6"><p><strong>إجمالي النقاط:</strong> ' + (order.total_points ?? 0) + ' نقطة</p></div>' +
+                (order.pickup_expires_at
+                    ? '<div class="col-md-6"><p><strong>آخر موعد استلام:</strong> ' + LmsHelpers.formatDate(order.pickup_expires_at) + '</p></div>'
+                    : '') +
+                (order.state?.state === 'confirmed'
+                    ? '<div class="col-12"><p class="text-muted">إلغاء الطلب المؤكد يعيد النقاط ومخزون البيع. إن لم يُستلم خلال 48 ساعة يُلغى تلقائياً.</p></div>'
+                    : '') +
                 '</div>' +
                 '<h5>عناصر الطلب</h5>' +
                 '<div class="table-responsive">' +
