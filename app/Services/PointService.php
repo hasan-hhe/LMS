@@ -64,16 +64,16 @@ class PointService
         });
     }
 
-    public function adjust(int $userId, int $delta, string $note, int $adminId): PointTransaction
+    public function adjust(int $userId, int $delta, string $note, int $staffId): PointTransaction
     {
         if ($delta === 0) {
             throw new \Exception('يجب ألا يكون تعديل النقاط صفراً');
         }
-        $fullNote = $note." (بواسطة المستخدم رقم {$adminId})";
+        $fullNote = $note." (بواسطة المستخدم رقم {$staffId})";
 
         return $delta > 0
-            ? $this->credit($userId, $delta, 'adjust', 'admin', (string) $adminId, $fullNote)
-            : $this->debit($userId, abs($delta), 'adjust', 'admin', (string) $adminId, $fullNote);
+            ? $this->credit($userId, $delta, 'adjust', 'staff', (string) $staffId, $fullNote)
+            : $this->debit($userId, abs($delta), 'adjust', 'staff', (string) $staffId, $fullNote);
     }
 
     public function sypToPoints(float $syp): int
@@ -93,6 +93,7 @@ class PointService
         PointSetting::firstOrCreate(['key' => 'reward_return_on_time'], ['value' => '5']);
         PointSetting::firstOrCreate(['key' => 'fine_per_day_syp'], ['value' => '0.5']);
         PointSetting::firstOrCreate(['key' => 'fine_per_day_points'], ['value' => '1']);
+        PointSetting::firstOrCreate(['key' => 'extension_per_day_points'], ['value' => '1']);
         PointSetting::firstOrCreate(['key' => 'loan_period_days'], ['value' => '14']);
         PointSetting::firstOrCreate(['key' => 'membership_points'], ['value' => '20']);
         PointSetting::firstOrCreate(['key' => 'membership_days'], ['value' => '365']);

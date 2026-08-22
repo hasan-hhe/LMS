@@ -20,14 +20,35 @@ class BookInstanceController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $search = trim((string) $request->input('search', ''));
+            $isbnInput = $request->input('book_isbn', $request->input('isbn'));
+            $compactIsbn = $this->compactIsbn($isbnInput ?: $search);
+
             $instances = BookInstance::with(['book', 'state'])
-                ->when($request->book_isbn, fn ($q) => $q->where('book_ISBN', $request->book_isbn))
                 ->when($request->state_id, fn ($q) => $q->where('state_id', $request->state_id))
-                ->when($request->search, function ($q) use ($request) {
-                    $search = $request->search;
-                    $q->whereHas('book', fn ($book) => $book
-                        ->where('title', 'like', "%{$search}%")
-                        ->orWhere('ISBN', 'like', "%{$search}%"));
+                ->when($search !== '' || $compactIsbn !== '' || $request->filled('book_isbn'), function ($q) use ($search, $compactIsbn, $isbnInput) {
+                    $q->where(function ($inner) use ($search, $compactIsbn, $isbnInput) {
+                        if ($search !== '' && ctype_digit($search) && strlen($search) <= 9) {
+                            $inner->orWhere('id', (int) $search);
+                        }
+                        $inner->orWhereHas('book', function ($book) use ($search, $compactIsbn, $isbnInput) {
+                            $book->where(function ($bookQuery) use ($search, $compactIsbn, $isbnInput) {
+                                if ($search !== '') {
+                                    $bookQuery->orWhere('title', 'like', '%'.$search.'%')
+                                        ->orWhere('ISBN', 'like', '%'.$search.'%');
+                                }
+                                if (filled($isbnInput)) {
+                                    $bookQuery->orWhere('ISBN', $isbnInput);
+                                }
+                                if ($compactIsbn !== '') {
+                                    $bookQuery->orWhereRaw(
+                                        "UPPER(REPLACE(REPLACE(ISBN, '-', ''), ' ', '')) like ?",
+                                        ['%'.$compactIsbn.'%']
+                                    );
+                                }
+                            });
+                        });
+                    });
                 })
                 ->latest('id')
                 ->paginate(ResponseHelper::perPage($request));
@@ -199,5 +220,10 @@ class BookInstanceController extends Controller
             DB::rollBack();
             return ResponseHelper::error($e->getMessage(), 500);
         }
+    }
+
+    private function compactIsbn(?string $value): string
+    {
+        return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $value));
     }
 }

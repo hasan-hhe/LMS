@@ -58,10 +58,16 @@ class OrderController extends Controller
     public function updateState(UpdateOrderStateRequest $request, int $id): JsonResponse
     {
         try {
-            $order = $this->orderService->updateOrderState($id, $request->state_id);
+            $order = $this->orderService->updateOrderState(
+                $id,
+                (int) $request->state_id,
+                $request->input('reason')
+            );
             $message = match ($order->state?->state) {
-                'confirmed' => 'تم تأكيد الطلب وخصم النقاط. بانتظار استلام العضو من المكتبة',
+                'confirmed' => 'تم تأكيد الطلب وخصم النقاط من مخزون البيع. بانتظار استلام العضو من المكتبة',
                 'delivered' => 'تم تسليم الطلب للعضو',
+                'cancelled' => 'تم إلغاء الطلب وإعادة النقاط ومخزون البيع إن وُجد خصم',
+                'rejected' => 'تم رفض الطلب وإعادة النقاط ومخزون البيع إن وُجد خصم',
                 default => 'تم تحديث حالة الطلب بنجاح',
             };
 

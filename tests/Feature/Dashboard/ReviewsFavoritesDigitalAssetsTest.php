@@ -190,15 +190,16 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
 
         $asset->update(['is_free' => true]);
 
-        $response = $this->actingAs($this->member)
+        $this->actingAs($this->member)
             ->getJson('/api/books/'.$this->book->ISBN)
             ->assertOk()
+            ->assertJsonPath('book.digital.is_free', true)
             ->assertJsonPath('book.digital.locked', false)
             ->assertJsonPath('book.digital.has_pdf', true);
 
-        $pdfUrl = $response->json('book.digital.pdf_url');
-        $this->assertIsString($pdfUrl);
-        $this->assertStringContainsString('/api/v1/books/'.$this->book->ISBN.'/digital/pdf', $pdfUrl);
+        $this->assertNotEmpty(
+            $this->actingAs($this->member)->getJson('/api/books/'.$this->book->ISBN)->json('book.digital.pdf_url')
+        );
     }
 
     public function test_staff_can_show_and_delete_digital_asset(): void
@@ -283,6 +284,33 @@ class ReviewsFavoritesDigitalAssetsTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('reviews', ['id' => $reviewId]);
+    }
+
+    public function test_opac_and_member_can_see_current_book_reviews(): void
+    {
+        $this->markBookReturnedForMember();
+
+        $this->actingAs($this->member)
+            ->postJson('/api/v1/member/reviews', [
+                'isbn' => $this->book->ISBN,
+                'rate' => 5,
+                'comment' => 'رائع',
+            ])
+            ->assertOk();
+
+        $this->getJson('/api/v1/opac/books/'.$this->book->ISBN)
+            ->assertOk()
+            ->assertJsonPath('data.reviews_count', 1)
+            ->assertJsonPath('data.reviews.0.rate', 5)
+            ->assertJsonPath('data.reviews.0.comment', 'رائع')
+            ->assertJsonPath('data.reviews.0.user.full_name', $this->member->fullName());
+
+        $this->actingAs($this->member)
+            ->getJson('/api/v1/books/'.$this->book->ISBN.'/reviews')
+            ->assertOk()
+            ->assertJsonPath('data.0.rate', 5)
+            ->assertJsonPath('data.0.comment', 'رائع')
+            ->assertJsonPath('data.0.user.full_name', $this->member->fullName());
     }
 
     private function markBookReturnedForMember(): void

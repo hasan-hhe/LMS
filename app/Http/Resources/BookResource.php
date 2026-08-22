@@ -17,6 +17,7 @@ class BookResource extends JsonResource
             'price_points' => $this->price_points,
             'borrow_points' => (int) ($this->borrow_points ?? 0),
             'has_borrow_points' => (int) ($this->borrow_points ?? 0) > 0,
+            'borrow_days' => $this->loanPeriodDays(),
             'amount' => $this->amount,
             'sale_stock' => $this->amount,
             'copies_count' => (int) ($this->instances_count ?? ($this->relationLoaded('instances') ? $this->instances->count() : 0)),

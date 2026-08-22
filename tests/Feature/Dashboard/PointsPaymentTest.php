@@ -54,4 +54,53 @@ class PointsPaymentTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.balance', 80);
     }
+
+    public function test_librarian_can_top_up_by_code_or_direct_points_and_read_rate(): void
+    {
+        /** @var User $librarian */
+        $librarian = User::factory()->create(['role' => 'LIBRARIAN']);
+        $member = User::factory()->create(['role' => 'MEMBER']);
+        UserPoint::create(['user_id' => $member->id, 'balance' => 10]);
+        $code = app(TopUpCodeService::class)->generateBatch(1, 40, null, null, $librarian->id)[0];
+
+        $this->actingAs($librarian)
+            ->getJson('/api/v1/points/settings')
+            ->assertOk()
+            ->assertJsonPath('data.syp_per_point', '100');
+
+        $this->actingAs($librarian)
+            ->postJson('/api/v1/points/top-up', [
+                'code' => $code->code,
+                'member_id' => $member->id,
+            ])
+            ->assertOk();
+        $this->assertSame(50, UserPoint::where('user_id', $member->id)->value('balance'));
+
+        $this->actingAs($librarian)
+            ->postJson('/api/v1/points/adjust', [
+                'member_id' => $member->id,
+                'points' => 25,
+                'note' => 'شحن مباشر من أمين المكتبة',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.points', 25);
+        $this->assertSame(75, UserPoint::where('user_id', $member->id)->value('balance'));
+    }
+
+    public function test_librarian_cannot_change_point_settings_or_generate_codes(): void
+    {
+        /** @var User $librarian */
+        $librarian = User::factory()->create(['role' => 'LIBRARIAN']);
+
+        $this->actingAs($librarian)
+            ->putJson('/api/v1/points/settings', ['syp_per_point' => 50])
+            ->assertForbidden();
+
+        $this->actingAs($librarian)
+            ->postJson('/api/v1/top-up-codes/generate', [
+                'count' => 1,
+                'points_value' => 10,
+            ])
+            ->assertForbidden();
+    }
 }

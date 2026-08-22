@@ -19,7 +19,7 @@ class StoreBorrowingRequest extends FormRequest
         return [
             'member_id'        => 'required|integer|exists:users,id',
             'book_instance_id' => 'required|integer|exists:book_instances,id',
-            'end_date'         => 'required|date|after:today',
+            'end_date'         => 'nullable|date|after:today',
             'borrowing_cost'   => 'nullable|numeric|min:0',
         ];
     }
@@ -31,7 +31,6 @@ class StoreBorrowingRequest extends FormRequest
             'member_id.exists'          => 'العضو المحدد غير موجود',
             'book_instance_id.required' => 'معرف نسخة الكتاب مطلوب',
             'book_instance_id.exists'   => 'نسخة الكتاب المحددة غير موجودة',
-            'end_date.required'         => 'تاريخ انتهاء الاستعارة مطلوب',
             'end_date.after'            => 'تاريخ انتهاء الاستعارة يجب أن يكون في المستقبل',
         ];
     }

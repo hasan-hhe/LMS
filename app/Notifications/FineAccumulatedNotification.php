@@ -4,16 +4,15 @@ namespace App\Notifications;
 
 use App\Models\LateFine;
 use App\Notifications\Concerns\BrandedMail;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class FineAccumulatedNotification extends Notification
+class FineAccumulatedNotification extends QueuedNotification
 {
-    use BrandedMail, Queueable;
+    use BrandedMail;
 
     public function __construct(public LateFine $fine, public int $addedPoints, public float $addedSyp)
     {
+        parent::__construct();
     }
 
     public function via(object $notifiable): array

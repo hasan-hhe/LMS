@@ -59,6 +59,10 @@ class OrderService
 
             [$totalPrice, $totalPoints, $totalAmount] = $this->calculateOrderTotals($data['items']);
 
+            if ($totalPoints > 0 && $this->pointService->getBalance((int) $data['user_id']) < $totalPoints) {
+                throw new \Exception('رصيد النقاط غير كافٍ لإتمام العملية');
+            }
+
             $order = Order::create([
                 'user_id' => $data['user_id'],
                 'state_id' => $pendingState->id,
@@ -78,7 +82,7 @@ class OrderService
         }
     }
 
-    public function updateOrderState(int $orderId, int $stateId): Order
+    public function updateOrderState(int $orderId, int $stateId, ?string $reason = null): Order
     {
         DB::beginTransaction();
         try {
@@ -96,27 +100,29 @@ class OrderService
             $this->assertValidTransition($currentState?->state, $state->state);
             $isFirstConfirmation = $state->state === 'confirmed'
                 && $currentState?->state !== 'confirmed';
+            $isRejectOrCancel = in_array($state->state, ['cancelled', 'rejected'], true);
+            $reason = is_string($reason) ? trim($reason) : null;
+
+            if ($isRejectOrCancel) {
+                $this->assertReasonRequired($reason);
+            }
 
             if ($isFirstConfirmation) {
                 $this->fineService->assertMemberHasNoUnpaidFines((int) $order->user_id);
-                $requiredStock = $order->items()
-                    ->select('book_ISBN', DB::raw('SUM(count) as required_count'))
-                    ->groupBy('book_ISBN')
-                    ->pluck('required_count', 'book_ISBN');
+                $order->loadMissing(['items']);
+                $paperRequired = $this->paperSaleQuantities($order);
 
-                $books = Book::whereIn('ISBN', $requiredStock->keys())
+                $books = Book::whereIn('ISBN', $paperRequired->keys())
                     ->lockForUpdate()
                     ->get()
                     ->keyBy('ISBN');
 
-                foreach ($requiredStock as $isbn => $requiredCount) {
+                foreach ($paperRequired as $isbn => $requiredCount) {
                     $book = $books->get($isbn);
                     if (! $book) {
                         throw new \Exception("الكتاب برقم ISBN {$isbn} غير موجود");
                     }
-                    if ($book->amount < $requiredCount) {
-                        throw new \Exception("الكمية المتاحة من الكتاب {$book->title} غير كافية");
-                    }
+                    $this->assertSaleStockAvailable($book, (int) $requiredCount);
                 }
 
                 $hasPayment = PointTransaction::where([
@@ -130,20 +136,26 @@ class OrderService
                     $this->pointService->debit($order->user_id, $order->total_points, 'spend', Order::class, (string) $order->id, 'دفع قيمة الطلب');
                 }
 
-                foreach ($requiredStock as $isbn => $requiredCount) {
+                foreach ($paperRequired as $isbn => $requiredCount) {
                     $books->get($isbn)->decrement('amount', (int) $requiredCount);
                 }
             }
 
-            if ($state->state === 'cancelled' && $currentState?->state === 'confirmed') {
-                $this->refundAndRestock($order);
+            if ($isRejectOrCancel && $currentState?->state === 'confirmed') {
+                $this->refundAndRestock($order, $state->state);
             }
 
             $payload = ['state_id' => $stateId];
             if ($isFirstConfirmation) {
-                $payload['pickup_expires_at'] = now()->addHours(self::PICKUP_HOURS);
+                $hasPaper = $order->items->contains(fn ($item) => ($item->format ?: 'paper') !== 'pdf');
+                $payload['pickup_expires_at'] = $hasPaper ? now()->addHours(self::PICKUP_HOURS) : null;
+                $payload['state_reason'] = null;
             }
-            if (in_array($state->state, ['cancelled', 'rejected', 'delivered'], true)) {
+            if ($isRejectOrCancel) {
+                $payload['state_reason'] = $reason;
+                $payload['pickup_expires_at'] = null;
+            }
+            if ($state->state === 'delivered') {
                 $payload['pickup_expires_at'] = null;
             }
 
@@ -181,7 +193,11 @@ class OrderService
         $count = 0;
         foreach ($orders as $order) {
             try {
-                $this->updateOrderState($order->id, $cancelled->id);
+                $this->updateOrderState(
+                    $order->id,
+                    $cancelled->id,
+                    'انتهت مهلة الاستلام دون حضور العضو'
+                );
                 $count++;
             } catch (\Throwable $e) {
                 report($e);
@@ -191,7 +207,7 @@ class OrderService
         return $count;
     }
 
-    private function refundAndRestock(Order $order): void
+    private function refundAndRestock(Order $order, string $targetState): void
     {
         $alreadyRefunded = PointTransaction::where([
             'user_id' => $order->user_id,
@@ -200,20 +216,21 @@ class OrderService
         ])->where('points', '>', 0)->exists();
 
         if (! $alreadyRefunded && $order->total_points > 0) {
+            $note = $targetState === 'rejected'
+                ? 'استرداد نقاط طلب مرفوض'
+                : 'استرداد نقاط طلب ملغى';
             $this->pointService->credit(
                 $order->user_id,
                 (int) $order->total_points,
                 'adjust',
                 Order::class,
                 (string) $order->id,
-                'استرداد نقاط طلب لم يُستلم'
+                $note
             );
         }
 
         $order->loadMissing('items');
-        $requiredStock = $order->items
-            ->groupBy('book_ISBN')
-            ->map(fn ($items) => (int) $items->sum('count'));
+        $requiredStock = $this->paperSaleQuantities($order);
 
         $books = Book::whereIn('ISBN', $requiredStock->keys())
             ->lockForUpdate()
@@ -228,6 +245,28 @@ class OrderService
         }
     }
 
+    private function paperSaleQuantities(Order $order)
+    {
+        return $order->items
+            ->filter(fn ($item) => ($item->format ?: 'paper') !== 'pdf')
+            ->groupBy('book_ISBN')
+            ->map(fn ($items) => (int) $items->sum('count'));
+    }
+
+    private function assertReasonRequired(?string $reason): void
+    {
+        if ($reason === null || $reason === '' || mb_strlen($reason) < 3) {
+            throw new \Exception('يجب كتابة سبب الرفض أو الإلغاء');
+        }
+    }
+
+    private function assertSaleStockAvailable(Book $book, int $count): void
+    {
+        if ($book->amount < $count) {
+            throw new \Exception("الكمية المتاحة من نسخ البيع للكتاب {$book->title} غير كافية");
+        }
+    }
+
     private function calculateOrderTotals(array $items): array
     {
         $totalPrice = 0;
@@ -235,12 +274,17 @@ class OrderService
         $totalAmount = 0;
 
         foreach ($items as $item) {
-            $book = Book::find($item['isbn']);
+            $book = Book::with('digitalAsset')->find($item['isbn']);
             if (! $book) {
                 throw new \Exception("الكتاب برقم ISBN {$item['isbn']} غير موجود");
             }
+            $format = $this->normalizeFormat($item['format'] ?? 'paper');
+            $this->assertPurchasable($book, $format, (int) $item['count']);
             $totalPrice += $book->price * $item['count'];
             $bookPoints = $book->price_points ?: $this->pointService->sypToPoints((float) $book->price);
+            if ($bookPoints < 1) {
+                throw new \Exception("سعر النقاط للكتاب {$book->title} غير متوفر");
+            }
             $totalPoints += $bookPoints * $item['count'];
             $totalAmount += $item['count'];
         }
@@ -251,14 +295,37 @@ class OrderService
     private function createOrderItems(int $orderId, array $items): void
     {
         foreach ($items as $item) {
-            $book = Book::find($item['isbn']);
+            $book = Book::with('digitalAsset')->find($item['isbn']);
+            $format = $this->normalizeFormat($item['format'] ?? 'paper');
             OrderItem::create([
                 'order_id' => $orderId,
                 'book_ISBN' => $item['isbn'],
                 'price_once' => $book->price,
                 'count' => $item['count'],
+                'format' => $format,
             ]);
         }
+    }
+
+    private function normalizeFormat(?string $format): string
+    {
+        return $format === 'pdf' ? 'pdf' : 'paper';
+    }
+
+    private function assertPurchasable(Book $book, string $format, int $count): void
+    {
+        if ($format === 'pdf') {
+            if (! $book->digitalAsset?->hasPdf()) {
+                throw new \Exception("لا يتوفر ملف PDF للبيع للكتاب {$book->title}");
+            }
+            if ($book->digitalAsset->is_free) {
+                throw new \Exception("ملف PDF للكتاب {$book->title} مجاني ولا يحتاج شراء");
+            }
+
+            return;
+        }
+
+        $this->assertSaleStockAvailable($book, $count);
     }
 
     private function assertValidTransition(?string $from, string $to): void
@@ -269,7 +336,7 @@ class OrderService
 
         $allowed = [
             'pending' => ['confirmed', 'cancelled', 'rejected'],
-            'confirmed' => ['delivered', 'cancelled'],
+            'confirmed' => ['delivered', 'cancelled', 'rejected'],
             'delivered' => [],
             'cancelled' => [],
             'rejected' => [],

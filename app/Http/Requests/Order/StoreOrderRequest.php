@@ -21,6 +21,7 @@ class StoreOrderRequest extends FormRequest
             'items'          => 'required|array|min:1',
             'items.*.isbn'   => 'required|string|exists:books,ISBN',
             'items.*.count'  => 'required|integer|min:1',
+            'items.*.format' => 'nullable|in:paper,pdf',
         ];
     }
 
@@ -35,6 +36,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.isbn.exists'     => 'أحد الكتب المحددة غير موجود',
             'items.*.count.required'  => 'الكمية مطلوبة',
             'items.*.count.min'       => 'الكمية يجب أن تكون واحداً على الأقل',
+            'items.*.format.in'       => 'نوع الكتاب يجب أن يكون ورقياً أو PDF',
         ];
     }
 

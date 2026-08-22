@@ -123,6 +123,9 @@
             if (form.fine_per_day_points) {
                 form.fine_per_day_points.value = settings.fine_per_day_points ?? '';
             }
+            if (form.extension_per_day_points) {
+                form.extension_per_day_points.value = settings.extension_per_day_points ?? '';
+            }
             if (form.loan_period_days) {
                 form.loan_period_days.value = settings.loan_period_days ?? '';
             }
@@ -142,6 +145,9 @@
                 fine_per_day_syp: Number(form.fine_per_day_syp.value),
                 fine_per_day_points: parseInt(form.fine_per_day_points.value, 10),
             };
+            if (form.extension_per_day_points) {
+                data.extension_per_day_points = parseInt(form.extension_per_day_points.value, 10);
+            }
             if (form.loan_period_days) {
                 data.loan_period_days = parseInt(form.loan_period_days.value, 10);
             }

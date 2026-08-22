@@ -23,6 +23,7 @@ class PointSettingService
             'reward_return_on_time',
             'fine_per_day_syp',
             'fine_per_day_points',
+            'extension_per_day_points',
             'loan_period_days',
             'membership_points',
             'membership_days',
@@ -62,6 +63,13 @@ class PointSettingService
         $this->pointService->ensureSettings();
 
         return (int) PointSetting::where('key', 'fine_per_day_points')->value('value');
+    }
+
+    public function getExtensionPerDayPoints(): int
+    {
+        $this->pointService->ensureSettings();
+
+        return max(0, (int) PointSetting::where('key', 'extension_per_day_points')->value('value'));
     }
 
     public function getLoanPeriodDays(): int

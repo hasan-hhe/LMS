@@ -45,16 +45,23 @@ class AblyService
             return;
         }
 
-        $this->client()->channels->get($this->userChannel($userId))->publish(
-            self::EVENT_NOTIFICATION,
-            $payload
-        );
+        try {
+            $this->client()->channels->get($this->userChannel($userId))->publish(
+                self::EVENT_NOTIFICATION,
+                $payload
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function client(): AblyRest
     {
         return $this->client ??= new AblyRest([
             'key' => config('services.ably.key'),
+            'httpOpenTimeout' => 2,
+            'httpRequestTimeout' => 3,
+            'httpMaxRetryCount' => 1,
         ]);
     }
 

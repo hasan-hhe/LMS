@@ -68,6 +68,12 @@
                                 <small class="form-text text-muted">تُخصم من رصيد العضو عند تسجيل الاستعارة.</small>
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <div class="col-md-3 form-group mb-3">
+                                <label>مدة الاستعارة (أيام) *</label>
+                                <input type="number" min="1" max="365" name="borrow_days" class="form-control" value="14" required>
+                                <small class="form-text text-muted">عدد الأيام من التسليم حتى الإرجاع.</small>
+                                <div class="invalid-feedback"></div>
+                            </div>
                             <div class="col-md-2 form-group mb-3">
                                 <label>سنة النشر *</label>
                                 <input type="text" name="year_of_publishing" class="form-control" required>

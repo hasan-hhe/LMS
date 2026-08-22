@@ -73,11 +73,23 @@
             const params = dateInput && dateInput.value ? { new_end_date: dateInput.value } : {};
             LmsApi.quoteBorrowingExtension(borrowingId, params).then(function (res) {
                 const quote = res.data || {};
+                if (dateInput) {
+                    if (quote.min_new_end_date) {
+                        dateInput.min = quote.min_new_end_date;
+                    }
+                    if (!dateInput.value && quote.new_end_date) {
+                        dateInput.value = quote.new_end_date;
+                    }
+                }
                 if (administrative) {
-                    quoteEl.textContent = 'تمديد إداري بدون خصم نقاط من العضو.';
+                    quoteEl.textContent = 'تمديد إداري بدون خصم نقاط من العضو. الموعد الحالي: ' +
+                        (quote.current_end_date || '-') +
+                        ' — اختر تاريخاً بعد هذا الموعد.';
                     return;
                 }
-                quoteEl.textContent = 'النقاط المطلوبة: ' + (quote.points ?? 0) +
+                quoteEl.textContent = 'الموعد الحالي: ' + (quote.current_end_date || '-') +
+                    ' · كل يوم = ' + (quote.points_per_day ?? 0) +
+                    ' نقطة · المطلوب: ' + (quote.points ?? 0) +
                     (quote.can_extend ? '' : ' — ' + (quote.reason || 'لا يمكن التمديد الآن'));
             }).catch(function () {
                 quoteEl.textContent = 'تعذر حساب تكلفة التمديد';
@@ -139,6 +151,7 @@
 
     function fillAvailableInstancesSelect() {
         const availableStateId = getAvailableStateId();
+        const instanceById = {};
         LmsHelpers.initRemoteSelect('#book_instance_id', {
             placeholder: 'اختر نسخة الكتاب',
             valueKey: 'id',
@@ -147,8 +160,9 @@
                 const isbn = instance.book?.isbn ? ' (' + instance.book.isbn + ')' : '';
                 const condition = LmsHelpers.conditionLabel(instance.condition);
                 const borrowPoints = Number(instance.book?.borrow_points || 0);
+                const days = Number(instance.book?.borrow_days || 14);
                 const cost = borrowPoints > 0 ? ' — ' + borrowPoints + ' نقطة للاستعارة' : ' — استعارة مجانية';
-                return title + isbn + ' - ' + condition + cost;
+                return title + isbn + ' - ' + condition + cost + ' — ' + days + ' يوم';
             },
             fetchFn: function (query) {
                 const params = { search: query, per_page: 30 };
@@ -162,11 +176,43 @@
                             return instance.state?.state === 'available';
                         });
                     }
+                    instances.forEach(function (instance) {
+                        instanceById[String(instance.id)] = instance;
+                    });
                     return instances;
                 });
             },
         });
+        $('#book_instance_id').on('change', function () {
+            applyDueDateFromBook(instanceById[String(this.value)]);
+        });
         return Promise.resolve();
+    }
+
+    function addDaysYmd(days) {
+        const date = new Date();
+        date.setDate(date.getDate() + Number(days || 14));
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    }
+
+    function applyDueDateFromBook(instance) {
+        const endInput = document.querySelector('#borrowingForm [name="end_date"]');
+        const hint = document.getElementById('borrowDaysHint');
+        if (!endInput) return;
+        if (!instance) {
+            if (hint) {
+                hint.textContent = 'يُحسب تلقائياً من مدة استعارة الكتاب عند اختيار النسخة. يمكن تعديله يدوياً.';
+            }
+            return;
+        }
+        const days = Number(instance.book?.borrow_days || 14);
+        endInput.value = addDaysYmd(days);
+        if (hint) {
+            hint.textContent = 'مدة استعارة هذا الكتاب: ' + days + ' يوماً. يُحسب تاريخ الإرجاع تلقائياً ويمكن تعديله.';
+        }
     }
 
     function initBorrowingForm() {

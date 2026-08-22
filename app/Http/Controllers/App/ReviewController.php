@@ -17,9 +17,21 @@ class ReviewController extends Controller
     public function mine(Request $request): JsonResponse
     {
         return ResponseHelper::success(
-            ReviewResource::collection($this->reviews->listByUser($request->user()->id)),
+            ReviewResource::collection($this->reviews->listByUser($request->user()->id))->resolve(),
             'تم جلب تقييماتك'
         );
+    }
+
+    public function byBook(string $isbn): JsonResponse
+    {
+        try {
+            return ResponseHelper::success(
+                ReviewResource::collection($this->reviews->listByBook($isbn))->resolve(),
+                'تم جلب تقييمات الكتاب'
+            );
+        } catch (\Exception $e) {
+            return ResponseHelper::notFound($e->getMessage());
+        }
     }
 
     public function store(StoreReviewRequest $request): JsonResponse

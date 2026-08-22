@@ -4,19 +4,19 @@ namespace App\Notifications;
 
 use App\Models\LateFine;
 use App\Notifications\Concerns\BrandedMail;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class FineChargedNotification extends Notification
+class FineChargedNotification extends QueuedNotification
 {
-    use BrandedMail, Queueable;
+    use BrandedMail;
 
     public function __construct(
         public LateFine $fine,
         public int $pointsDebited,
         public float $sypDebited,
-    ) {}
+    ) {
+        parent::__construct();
+    }
 
     public function via(object $notifiable): array
     {

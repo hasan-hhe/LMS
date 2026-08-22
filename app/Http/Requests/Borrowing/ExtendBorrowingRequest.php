@@ -17,8 +17,11 @@ class ExtendBorrowingRequest extends FormRequest
 
     public function rules(): array
     {
+        $borrowing = Borrowing::find($this->route('id'));
+        $after = $borrowing?->end_date?->toDateString() ?? 'today';
+
         return [
-            'new_end_date' => 'required|date|after:today',
+            'new_end_date' => 'required|date|after:'.$after,
             'cause' => 'nullable|string|max:255',
             'administrative' => 'sometimes|boolean',
         ];
@@ -42,7 +45,7 @@ class ExtendBorrowingRequest extends FormRequest
     {
         return [
             'new_end_date.required' => 'تاريخ التمديد الجديد مطلوب',
-            'new_end_date.after' => 'تاريخ التمديد يجب أن يكون في المستقبل',
+            'new_end_date.after' => 'تاريخ التمديد يجب أن يكون بعد تاريخ انتهاء الاستعارة الحالي',
         ];
     }
 

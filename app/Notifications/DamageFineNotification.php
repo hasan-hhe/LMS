@@ -3,15 +3,14 @@
 namespace App\Notifications;
 
 use App\Models\LateFine;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class DamageFineNotification extends Notification
+class DamageFineNotification extends QueuedNotification
 {
-    use Queueable;
-
-    public function __construct(public LateFine $fine) {}
+    public function __construct(public LateFine $fine)
+    {
+        parent::__construct();
+    }
 
     public function via(object $notifiable): array
     {

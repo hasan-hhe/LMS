@@ -12,6 +12,14 @@
         rejected: 'مرفوض',
     };
 
+    const orderTransitions = {
+        pending: ['confirmed', 'cancelled', 'rejected'],
+        confirmed: ['delivered', 'cancelled', 'rejected'],
+        delivered: [],
+        cancelled: [],
+        rejected: [],
+    };
+
     const ordersFilterConfig = {
         fields: {
             state_id: '#filterOrderState',
@@ -33,11 +41,119 @@
         });
     }
 
-    function fillOrderStateSelect(selectedId) {
-        const states = window.LMS_LOOKUPS?.orderStates || [];
-        LmsHelpers.fillSelect('#orderStateSelect', states, 'id', function (item) {
-            return orderStateLabel(item.state);
-        }, selectedId);
+    function orderStatesFromLookups() {
+        const states = window.LMS_LOOKUPS?.orderStates;
+        if (Array.isArray(states)) {
+            return states;
+        }
+        if (states && typeof states === 'object') {
+            return Object.values(states);
+        }
+        return [];
+    }
+
+    function allowedOrderStates(currentKey) {
+        const allStates = orderStatesFromLookups();
+        const allowedKeys = [currentKey].concat(orderTransitions[currentKey] || []);
+        const filtered = allStates.filter(function (item) {
+            return allowedKeys.indexOf(item.state) !== -1;
+        });
+        return filtered.length ? filtered : allStates;
+    }
+
+    function fillOrderStateSelect(order) {
+        const $select = $('#orderStateSelect');
+        if (!$select.length) return;
+
+        LmsHelpers.fillSelect(
+            '#orderStateSelect',
+            allowedOrderStates(order?.state?.state),
+            'id',
+            function (item) {
+                return orderStateLabel(item.state);
+            },
+            order?.state?.id
+        );
+        toggleOrderReasonField();
+    }
+
+    function selectedOrderStateKey() {
+        const selectedId = $('#orderStateSelect').val();
+        const found = orderStatesFromLookups().find(function (item) {
+            return String(item.id) === String(selectedId);
+        });
+        return found?.state || '';
+    }
+
+    function setOrderStateSelectEnabled(enabled) {
+        const choices = LmsHelpers.getChoicesInstance('#orderStateSelect');
+        if (choices) {
+            if (enabled) {
+                choices.enable();
+            } else {
+                choices.disable();
+            }
+            return;
+        }
+        $('#orderStateSelect').prop('disabled', !enabled);
+    }
+
+    function toggleOrderReasonField() {
+        const needsReason = ['cancelled', 'rejected'].indexOf(selectedOrderStateKey()) !== -1;
+        $('#orderStateReasonWrap').toggleClass('d-none', !needsReason);
+        if (!needsReason) {
+            $('#orderStateReason').val('');
+        }
+    }
+
+    function renderOrderShow(order) {
+        fillOrderStateSelect(order);
+
+        let itemsHtml = '';
+        (order.items || []).forEach(function (item, i) {
+            const formatLabel = item.format === 'pdf' ? 'PDF' : 'ورقي (نسخ البيع)';
+            itemsHtml += '<tr>' +
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + (item.book?.isbn || '-') + '</td>' +
+                '<td>' + (item.book?.title || '-') + '</td>' +
+                '<td>' + formatLabel + '</td>' +
+                '<td>' + (item.count || 0) + '</td>' +
+                '<td>' + (item.price_once || 0) + '</td>' +
+                '<td>' + (item.total || 0) + '</td>' +
+                '</tr>';
+        });
+
+        const terminal = ['cancelled', 'rejected'].indexOf(order.state?.state) !== -1;
+        $('#orderShowContent').html(
+            '<div class="row mb-4">' +
+            '<div class="col-md-6"><p><strong>رقم الطلب:</strong> ' + (order.id || '') + '</p></div>' +
+            '<div class="col-md-6"><p><strong>المستخدم:</strong> ' + (order.user?.full_name || '-') + '</p></div>' +
+            '<div class="col-md-6"><p><strong>الحالة:</strong> ' + orderStateLabel(order.state?.state) + '</p></div>' +
+            '<div class="col-md-6"><p><strong>إجمالي الكمية:</strong> ' + (order.total_amount || 0) + '</p></div>' +
+            '<div class="col-md-6"><p><strong>إجمالي السعر:</strong> ' + (order.total_prices || 0) + '</p></div>' +
+            '<div class="col-md-6"><p><strong>إجمالي النقاط:</strong> ' + (order.total_points ?? 0) + ' نقطة</p></div>' +
+            (order.pickup_expires_at
+                ? '<div class="col-md-6"><p><strong>آخر موعد استلام:</strong> ' + LmsHelpers.formatDate(order.pickup_expires_at) + '</p></div>'
+                : '') +
+            (order.reason
+                ? '<div class="col-12"><p><strong>سبب الرفض/الإلغاء:</strong> ' + escapeHtml(order.reason) + '</p></div>'
+                : '') +
+            (order.state?.state === 'confirmed'
+                ? '<div class="col-12"><p class="text-muted">الرفض أو الإلغاء يعيد النقاط ومخزون البيع. إن لم يُستلم خلال 48 ساعة يُلغى تلقائياً.</p></div>'
+                : '') +
+            '</div>' +
+            '<h5>عناصر الطلب</h5>' +
+            '<div class="table-responsive">' +
+            '<table class="table table-striped">' +
+            '<thead><tr>' +
+            '<th>#</th><th>ISBN</th><th>العنوان</th><th>النوع</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th>' +
+            '</tr></thead>' +
+            '<tbody>' + (itemsHtml || '<tr><td colspan="7" class="empty-state">لا توجد عناصر</td></tr>') + '</tbody>' +
+            '</table></div>'
+        );
+
+        $('#btnUpdateOrderState').prop('disabled', terminal);
+        setOrderStateSelectEnabled(!terminal);
     }
 
     function loadOrdersList(page) {
@@ -162,77 +278,71 @@
         });
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     function initOrderShow() {
         if (!window.LMS_ORDER_ID) return;
 
-        LmsApi.getOrder(window.LMS_ORDER_ID).then(function (res) {
-            const order = res.data;
-            fillOrderStateSelect(order.state?.id);
+        loadOrderShow();
 
-            let itemsHtml = '';
-            (order.items || []).forEach(function (item, i) {
-                itemsHtml += '<tr>' +
-                    '<td>' + (i + 1) + '</td>' +
-                    '<td>' + (item.book?.isbn || '-') + '</td>' +
-                    '<td>' + (item.book?.title || '-') + '</td>' +
-                    '<td>' + (item.count || 0) + '</td>' +
-                    '<td>' + (item.price_once || 0) + '</td>' +
-                    '<td>' + (item.total || 0) + '</td>' +
-                    '</tr>';
-            });
-
-            $('#orderShowContent').html(
-                '<div class="row mb-4">' +
-                '<div class="col-md-6"><p><strong>رقم الطلب:</strong> ' + (order.id || '') + '</p></div>' +
-                '<div class="col-md-6"><p><strong>المستخدم:</strong> ' + (order.user?.full_name || '-') + '</p></div>' +
-                '<div class="col-md-6"><p><strong>الحالة:</strong> ' + orderStateLabel(order.state?.state) + '</p></div>' +
-                '<div class="col-md-6"><p><strong>إجمالي الكمية:</strong> ' + (order.total_amount || 0) + '</p></div>' +
-                '<div class="col-md-6"><p><strong>إجمالي السعر:</strong> ' + (order.total_prices || 0) + '</p></div>' +
-                '<div class="col-md-6"><p><strong>إجمالي النقاط:</strong> ' + (order.total_points ?? 0) + ' نقطة</p></div>' +
-                (order.pickup_expires_at
-                    ? '<div class="col-md-6"><p><strong>آخر موعد استلام:</strong> ' + LmsHelpers.formatDate(order.pickup_expires_at) + '</p></div>'
-                    : '') +
-                (order.state?.state === 'confirmed'
-                    ? '<div class="col-12"><p class="text-muted">إلغاء الطلب المؤكد يعيد النقاط ومخزون البيع. إن لم يُستلم خلال 48 ساعة يُلغى تلقائياً.</p></div>'
-                    : '') +
-                '</div>' +
-                '<h5>عناصر الطلب</h5>' +
-                '<div class="table-responsive">' +
-                '<table class="table table-striped">' +
-                '<thead><tr>' +
-                '<th>#</th><th>ISBN</th><th>العنوان</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th>' +
-                '</tr></thead>' +
-                '<tbody>' + (itemsHtml || '<tr><td colspan="6" class="empty-state">لا توجد عناصر</td></tr>') + '</tbody>' +
-                '</table></div>'
-            );
-        }).catch(function (error) {
-            LmsHelpers.handleApiError(error);
-        });
+        $('#orderStateSelect').on('change', toggleOrderReasonField);
 
         $('#btnUpdateOrderState').on('click', function () {
             const btn = this;
             const stateId = parseInt($('#orderStateSelect').val(), 10);
+            const stateKey = selectedOrderStateKey();
             if (!stateId) {
                 LmsHelpers.notify('error', 'يرجى اختيار حالة');
                 return;
             }
 
+            const payload = { state_id: stateId };
+            if (['cancelled', 'rejected'].indexOf(stateKey) !== -1) {
+                const reason = ($('#orderStateReason').val() || '').trim();
+                if (reason.length < 3) {
+                    LmsHelpers.notify('error', 'يجب كتابة سبب الرفض أو الإلغاء');
+                    return;
+                }
+                payload.reason = reason;
+            }
+
             LmsHelpers.withBusy(btn, function () {
-                return LmsApi.updateOrderState(window.LMS_ORDER_ID, { state_id: stateId }).then(function (res) {
+                return LmsApi.updateOrderState(window.LMS_ORDER_ID, payload).then(function (res) {
                     LmsHelpers.notify('success', LmsHelpers.responseMessage(res));
-                    initOrderShowReload();
+                    $('#orderStateReason').val('');
+                    loadOrderShow();
                 }).catch(LmsHelpers.handleApiError);
             });
         });
     }
 
-    function initOrderShowReload() {
-        LmsApi.getOrder(window.LMS_ORDER_ID).then(function (res) {
-            const order = res.data;
-            fillOrderStateSelect(order.state?.id);
-            $('#orderShowContent').find('p').filter(function () {
-                return $(this).text().indexOf('الحالة:') === 0;
-            }).html('<strong>الحالة:</strong> ' + orderStateLabel(order.state?.state));
+    function loadOrderShow() {
+        const lookups = orderStatesFromLookups();
+        const statesPromise = lookups.length
+            ? Promise.resolve(lookups)
+            : LmsApi.getOrderStates().then(function (res) {
+                const items = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+                window.LMS_LOOKUPS = window.LMS_LOOKUPS || {};
+                window.LMS_LOOKUPS.orderStates = items;
+                return items;
+            }).catch(function () {
+                return [];
+            });
+
+        return Promise.all([
+            LmsApi.getOrder(window.LMS_ORDER_ID),
+            statesPromise,
+        ]).then(function (results) {
+            renderOrderShow(results[0].data);
+        }).catch(function (error) {
+            LmsHelpers.handleApiError(error);
         });
     }
 

@@ -39,10 +39,18 @@
                                 <small class="form-text text-muted">تُخصم يومياً من رصيد العضو عند التأخير. إن لم يكفِ الرصيد تتجمّع كمبلغ واحد بالليرة أو النقاط.</small>
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <hr>
+                            <h5 class="mb-3">تمديد الاستعارة</h5>
+                            <div class="form-group mb-3">
+                                <label>نقاط تمديد الاستعارة لليوم الواحد *</label>
+                                <input type="number" name="extension_per_day_points" min="0" class="form-control" required>
+                                <small class="form-text text-muted">تُخصم من رصيد العضو عن كل يوم يُضاف بعد تاريخ انتهاء الاستعارة الحالي. القيمة 0 تعني تمديداً مجانياً.</small>
+                                <div class="invalid-feedback"></div>
+                            </div>
                             <div class="form-group mb-3">
                                 <label>مدة الاستعارة الافتراضية (أيام) *</label>
                                 <input type="number" name="loan_period_days" min="1" class="form-control" required>
-                                <small class="form-text text-muted">تُستخدم عند تسليم الحجز إذا لم يُحدد تاريخ انتهاء.</small>
+                                <small class="form-text text-muted">احتياطي فقط إذا لم تُحدد مدة استعارة للكتاب نفسه.</small>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <hr>

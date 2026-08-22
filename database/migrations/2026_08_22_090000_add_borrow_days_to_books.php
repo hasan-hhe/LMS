@@ -1,0 +1,26 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('books', function (Blueprint $table) {
+            if (! Schema::hasColumn('books', 'borrow_days')) {
+                $table->unsignedSmallInteger('borrow_days')->default(14)->after('borrow_points');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('books', function (Blueprint $table) {
+            if (Schema::hasColumn('books', 'borrow_days')) {
+                $table->dropColumn('borrow_days');
+            }
+        });
+    }
+};

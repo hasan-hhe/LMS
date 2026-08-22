@@ -16,10 +16,9 @@ class FavoriteController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return ResponseHelper::success(
-            FavoriteResource::collection($this->favorites->list($request->user()->id)),
-            'تم جلب قائمة المفضلة'
-        );
+        return ResponseHelper::success([
+            'items' => FavoriteResource::collection($this->favorites->list($request->user()->id))->resolve(),
+        ], 'تم جلب قائمة المفضلة');
     }
 
     public function store(StoreFavoriteRequest $request): JsonResponse

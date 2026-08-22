@@ -19,6 +19,9 @@ class StoreBookRequest extends FormRequest
         if ($this->exists('has_borrow_points') && ! $this->boolean('has_borrow_points')) {
             $this->merge(['borrow_points' => 0]);
         }
+        if (! $this->filled('borrow_days')) {
+            $this->merge(['borrow_days' => 14]);
+        }
     }
 
     public function rules(): array
@@ -36,6 +39,7 @@ class StoreBookRequest extends FormRequest
             'borrow_points' => $this->boolean('has_borrow_points')
                 ? 'required|integer|min:1'
                 : 'nullable|integer|min:0',
+            'borrow_days' => 'required|integer|min:1|max:365',
             'amount' => 'required|integer|min:0',
             'copies_count' => 'required|integer|min:0|max:500',
             'year_of_publishing' => 'required|string|max:4',
@@ -64,6 +68,10 @@ class StoreBookRequest extends FormRequest
             'borrow_points.required' => 'حدد عدد نقاط الاستعارة',
             'borrow_points.integer' => 'نقاط الاستعارة يجب أن تكون رقماً صحيحاً',
             'borrow_points.min' => 'إذا كانت الاستعارة عليها نقاط فيجب أن تكون نقطة واحدة على الأقل',
+            'borrow_days.required' => 'مدة الاستعارة بالأيام مطلوبة',
+            'borrow_days.integer' => 'مدة الاستعارة يجب أن تكون رقماً صحيحاً',
+            'borrow_days.min' => 'مدة الاستعارة يجب أن تكون يوماً واحداً على الأقل',
+            'borrow_days.max' => 'مدة الاستعارة لا تتجاوز 365 يوماً',
             'amount.required' => 'عدد نسخ البيع مطلوب',
             'amount.integer' => 'عدد نسخ البيع يجب أن يكون رقماً صحيحاً',
             'amount.min' => 'عدد نسخ البيع لا يمكن أن يكون سالباً',

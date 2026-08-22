@@ -31,8 +31,9 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 form-group mb-3">
-                                <label>تاريخ انتهاء الاستعارة *</label>
-                                <input type="date" name="end_date" class="form-control" required>
+                                <label>تاريخ انتهاء الاستعارة</label>
+                                <input type="date" name="end_date" class="form-control">
+                                <small id="borrowDaysHint" class="form-text text-muted">يُحسب تلقائياً من مدة استعارة الكتاب عند اختيار النسخة. يمكن تعديله يدوياً.</small>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-12">

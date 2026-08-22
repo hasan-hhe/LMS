@@ -348,6 +348,10 @@
             return apiClient.put('/orders/' + id + '/state', data).then(unwrap);
         },
 
+        getOrderStates() {
+            return apiClient.get('/order-states').then(unwrap);
+        },
+
         getReportStats() {
             return apiClient.get('/reports/stats').then(unwrap);
         },

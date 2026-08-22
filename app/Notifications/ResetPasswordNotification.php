@@ -3,15 +3,16 @@
 namespace App\Notifications;
 
 use App\Notifications\Concerns\BrandedMail;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class ResetPasswordNotification extends Notification
+class ResetPasswordNotification extends QueuedNotification
 {
-    use BrandedMail, Queueable;
+    use BrandedMail;
 
-    public function __construct(public string $token) {}
+    public function __construct(public string $token)
+    {
+        parent::__construct();
+    }
 
     public function via(object $notifiable): array
     {

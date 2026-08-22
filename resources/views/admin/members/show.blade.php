@@ -23,7 +23,7 @@
                                 <button type="button" id="btnMemberTopUp" class="btn btn-light">
                                     <i class="fas fa-ticket-alt"></i> شحن بكود
                                 </button>
-                                <button type="button" id="btnAdjustMemberPoints" class="btn btn-warning" data-role="ADMIN">
+                                <button type="button" id="btnAdjustMemberPoints" class="btn btn-warning" data-role="ADMIN,LIBRARIAN">
                                     <i class="fas fa-sliders-h"></i> تعديل الرصيد
                                 </button>
                             </div>

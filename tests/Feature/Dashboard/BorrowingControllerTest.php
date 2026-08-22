@@ -8,6 +8,7 @@ use App\Models\BookInstance;
 use App\Models\Borrowing;
 use App\Models\Category;
 use App\Models\InstanceState;
+use App\Models\PointSetting;
 use App\Models\Publisher;
 use App\Models\Reservation;
 use App\Models\ReservationState;
@@ -82,6 +83,29 @@ class BorrowingControllerTest extends TestCase
             'member_id'        => $this->member->id,
             'book_instance_id' => $this->instance->id,
         ]);
+    }
+
+    public function test_checkout_uses_book_borrow_days_when_end_date_omitted(): void
+    {
+        $this->instance->book->update(['borrow_days' => 7]);
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $expectedDue = now()->addDays(7)->toDateString();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/borrowings', [
+                'member_id' => $this->member->id,
+                'book_instance_id' => $this->instance->id,
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.end_date', $expectedDue);
+
+        $borrowing = Borrowing::where('member_id', $this->member->id)
+            ->where('book_instance_id', $this->instance->id)
+            ->first();
+
+        $this->assertNotNull($borrowing);
+        $this->assertSame($expectedDue, $borrowing->end_date->toDateString());
+        $this->assertSame($expectedDue, $borrowing->due_date->toDateString());
     }
 
     public function test_checkout_debits_book_borrow_points(): void
@@ -335,7 +359,73 @@ class BorrowingControllerTest extends TestCase
             ->getJson("/api/v1/borrowings/{$borrowing->id}/extension-quote?new_end_date={$newEnd}")
             ->assertStatus(200)
             ->assertJsonPath('data.can_extend', true)
-            ->assertJsonPath('data.days', 7);
+            ->assertJsonPath('data.days', 7)
+            ->assertJsonPath('data.points_per_day', 1)
+            ->assertJsonPath('data.min_new_end_date', $borrowing->end_date->copy()->addDay()->toDateString());
+    }
+
+    public function test_cannot_extend_to_current_or_earlier_end_date(): void
+    {
+        $borrowedState = InstanceState::where('state', 'borrowed')->first();
+        $this->instance->update(['state_id' => $borrowedState->id]);
+        UserPoint::create(['user_id' => $this->member->id, 'balance' => 50]);
+
+        $end = now()->addDays(7)->toDateString();
+        $borrowing = Borrowing::create([
+            'member_id' => $this->member->id,
+            'librarian_id' => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date' => now(),
+            'end_date' => $end,
+            'due_date' => $end,
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/extend", [
+                'new_end_date' => $end,
+            ])
+            ->assertStatus(422);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/borrowings/{$borrowing->id}/extend", [
+                'new_end_date' => now()->addDays(3)->toDateString(),
+            ])
+            ->assertStatus(422);
+    }
+
+    public function test_extension_points_use_extension_per_day_setting(): void
+    {
+        $borrowedState = InstanceState::where('state', 'borrowed')->first();
+        $this->instance->update(['state_id' => $borrowedState->id]);
+        UserPoint::create(['user_id' => $this->member->id, 'balance' => 50]);
+        PointSetting::updateOrCreate(
+            ['key' => 'extension_per_day_points'],
+            ['value' => '3']
+        );
+
+        $borrowing = Borrowing::create([
+            'member_id' => $this->member->id,
+            'librarian_id' => $this->librarian->id,
+            'book_instance_id' => $this->instance->id,
+            'start_date' => now(),
+            'end_date' => now()->addDays(7),
+            'due_date' => now()->addDays(7),
+            'borrowing_cast' => 0,
+            'is_paid' => false,
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+        $newEnd = now()->addDays(10)->toDateString();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson("/api/v1/borrowings/{$borrowing->id}/extension-quote?new_end_date={$newEnd}")
+            ->assertOk()
+            ->assertJsonPath('data.days', 3)
+            ->assertJsonPath('data.points_per_day', 3)
+            ->assertJsonPath('data.points', 9);
     }
 
     public function test_restore_returns_damaged_copy_to_available(): void
@@ -348,6 +438,26 @@ class BorrowingControllerTest extends TestCase
             ->putJson("/api/v1/book-instances/{$this->instance->id}/restore")
             ->assertStatus(200)
             ->assertJsonPath('data.state.state', 'available');
+    }
+
+    public function test_librarian_can_search_copies_by_id_or_isbn_with_or_without_hyphens(): void
+    {
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/book-instances?search='.$this->instance->id)
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $this->instance->id);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/book-instances?book_isbn=978-test-001')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $this->instance->id);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/book-instances?search=978test001')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $this->instance->id);
     }
 
     public function test_index_returns_borrowings_list(): void

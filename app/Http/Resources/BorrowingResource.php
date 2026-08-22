@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MemberStatusLabels;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,15 +11,24 @@ class BorrowingResource extends JsonResource
     public function toArray(Request $request): array
     {
         $extension = $this->extensionQuote();
+        $returned = $this->isReturned();
+        $overdue = $this->isOverdue();
+        $book = $this->bookInstance?->book;
 
         return [
             'id'             => $this->id,
+            'isbn'           => $book?->ISBN,
+            'title'          => $book?->title,
+            'author'         => $book?->author?->fullName(),
+            'status'         => $returned ? 'returned' : ($overdue ? 'overdue' : 'active'),
+            'status_label'   => MemberStatusLabels::borrowing($returned, $overdue),
+            'state_name'     => MemberStatusLabels::borrowing($returned, $overdue),
             'start_date'     => $this->start_date?->toDateString(),
             'end_date'       => $this->end_date?->toDateString(),
             'due_date'       => $this->due_date?->toDateString(),
             'returned_at'    => $this->returned_at?->toDateTimeString(),
-            'is_returned'    => $this->isReturned(),
-            'is_overdue'     => $this->isOverdue(),
+            'is_returned'    => $returned,
+            'is_overdue'     => $overdue,
             'borrowing_cost' => $this->borrowing_cast,
             'is_paid'        => $this->is_paid,
             'paid_at'        => $this->paid_at?->toDateTimeString(),
@@ -41,6 +51,7 @@ class BorrowingResource extends JsonResource
                     'title' => $this->bookInstance->book->title,
                     'borrow_points' => (int) ($this->bookInstance->book->borrow_points ?? 0),
                     'has_borrow_points' => (int) ($this->bookInstance->book->borrow_points ?? 0) > 0,
+                    'borrow_days' => $this->bookInstance->book->loanPeriodDays(),
                 ] : null,
             ]),
             'late_fine'      => $this->whenLoaded('lateFine', fn() => $this->lateFine ? [

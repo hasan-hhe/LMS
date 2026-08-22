@@ -78,6 +78,25 @@ class BookControllerTest extends TestCase
             'ISBN' => '978-3-16-148410-0',
             'amount' => 10,
             'borrow_points' => 0,
+            'borrow_days' => 14,
+        ]);
+    }
+
+    public function test_store_saves_borrow_days(): void
+    {
+        $token = $this->admin->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/books', $this->validBookPayload([
+                'ISBN' => '978-borrow-days',
+                'borrow_days' => 7,
+            ]))
+            ->assertStatus(201)
+            ->assertJsonPath('data.borrow_days', 7);
+
+        $this->assertDatabaseHas('books', [
+            'ISBN' => '978-borrow-days',
+            'borrow_days' => 7,
         ]);
     }
 

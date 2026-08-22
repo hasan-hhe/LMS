@@ -69,11 +69,11 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::post('notifications/send', [NotificationController::class, 'send']);
         Route::get('favorites', [FavoriteController::class, 'index']);
         Route::get('reviews', [ReviewController::class, 'index']);
-        Route::get('books/{isbn}/reviews', [ReviewController::class, 'byBook']);
         Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
         Route::get('points/balance', [PointController::class, 'balance']);
         Route::get('points/history', [PointController::class, 'history']);
         Route::post('points/top-up', [TopUpCodeController::class, 'redeem']);
+        Route::post('points/adjust', [PointController::class, 'adjust']);
         Route::get('top-up-codes', [TopUpCodeController::class, 'index']);
     });
 
@@ -101,7 +101,6 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::middleware('role:ADMIN')->group(function () {
         Route::apiResource('librarians', LibrarianController::class);
         Route::put('points/settings', [PointController::class, 'updateSettings']);
-        Route::post('points/adjust', [PointController::class, 'adjust']);
         Route::post('top-up-codes/generate', [TopUpCodeController::class, 'generate']);
     });
 
@@ -144,7 +143,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Orders — Admin Only
+    | Orders — Librarian & Admin
     |--------------------------------------------------------------------------
     */
     Route::middleware('role:ADMIN,LIBRARIAN')->group(function () {

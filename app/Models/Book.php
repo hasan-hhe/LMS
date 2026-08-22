@@ -26,6 +26,7 @@ class Book extends Model
         'price',
         'price_points',
         'borrow_points',
+        'borrow_days',
         'amount',
         'rate_avg',
         'cover_url',
@@ -37,6 +38,7 @@ class Book extends Model
         'price' => 'float',
         'price_points' => 'integer',
         'borrow_points' => 'integer',
+        'borrow_days' => 'integer',
         'rate_avg' => 'float',
         'amount' => 'integer',
     ];
@@ -86,5 +88,12 @@ class Book extends Model
         return $this->instances()->whereHas('state', function ($query) {
             $query->where('state', 'available');
         });
+    }
+
+    public function loanPeriodDays(int $fallback = 14): int
+    {
+        $days = (int) ($this->borrow_days ?? 0);
+
+        return $days > 0 ? $days : max(1, $fallback);
     }
 }

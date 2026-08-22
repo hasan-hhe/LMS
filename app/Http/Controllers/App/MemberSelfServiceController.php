@@ -11,6 +11,7 @@ use App\Http\Resources\LateFineResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\PointBalanceResource;
 use App\Http\Resources\PointTransactionResource;
+use App\Http\Resources\ReservationResource;
 use App\Models\BookInstance;
 use App\Models\Borrowing;
 use App\Models\LateFine;
@@ -24,6 +25,7 @@ use App\Services\OrderService;
 use App\Services\PointService;
 use App\Services\ReservationService;
 use App\Services\TopUpCodeService;
+use App\Support\MemberStatusLabels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -73,7 +75,7 @@ class MemberSelfServiceController extends Controller
 
     public function borrowings(Request $request)
     {
-        $query = Borrowing::with(['bookInstance.book', 'lateFine', 'editions'])
+        $query = Borrowing::with(['bookInstance.book.author', 'lateFine', 'editions'])
             ->where('member_id', $request->user()->id);
         $status = $request->input('status');
         if (in_array($status, ['active', 'current'], true)) {
@@ -175,14 +177,14 @@ class MemberSelfServiceController extends Controller
 
     public function reservations(Request $request)
     {
-        $reservations = Reservation::with(['bookInstance.book', 'state'])
+        $reservations = Reservation::with(['bookInstance.book.author', 'state'])
             ->where('user_id', $request->user()->id)
             ->orderByDesc('id')
             ->paginate(15);
 
         return ResponseHelper::success([
-            'items' => $reservations->items(),
-            'data' => $reservations->items(),
+            'items' => ReservationResource::collection($reservations->items())->resolve(),
+            'data' => ReservationResource::collection($reservations->items())->resolve(),
             'meta' => $this->paginationMeta($reservations),
         ], 'تم جلب الحجوزات بنجاح');
     }
@@ -262,6 +264,7 @@ class MemberSelfServiceController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.isbn' => ['required', 'string', 'exists:books,ISBN'],
             'items.*.count' => ['required', 'integer', 'min:1'],
+            'items.*.format' => ['nullable', 'in:paper,pdf'],
         ], [
             'items.required' => 'عناصر الطلب مطلوبة',
             'items.min' => 'يجب أن يحتوي الطلب على عنصر واحد على الأقل',
@@ -269,11 +272,12 @@ class MemberSelfServiceController extends Controller
             'items.*.isbn.exists' => 'أحد الكتب المحددة غير موجود',
             'items.*.count.required' => 'الكمية مطلوبة',
             'items.*.count.min' => 'الكمية يجب أن تكون واحداً على الأقل',
+            'items.*.format.in' => 'نوع الكتاب يجب أن يكون ورقياً أو PDF',
         ]);
         $data['user_id'] = $request->user()->id;
 
         try {
-            return ResponseHelper::created(new OrderResource($this->orderService->createOrder($data)), 'تم إنشاء الطلب بنجاح');
+            return ResponseHelper::created(new OrderResource($this->orderService->createOrder($data)), 'تم إرسال الطلب وهو قيد المراجعة. سيُخصم الرصيد عند تأكيد أمين المكتبة');
         } catch (\Throwable $e) {
             return ResponseHelper::error($e->getMessage(), 422);
         }
@@ -281,22 +285,18 @@ class MemberSelfServiceController extends Controller
 
     public function payOrder(Request $request, int $id)
     {
-        $order = Order::whereKey($id)->where('user_id', $request->user()->id)->first();
+        $order = Order::with(['user', 'state', 'items.book'])
+            ->whereKey($id)
+            ->where('user_id', $request->user()->id)
+            ->first();
         if (! $order) {
             return ResponseHelper::notFound('الطلب غير موجود');
         }
-        if ($order->state?->state !== 'pending') {
-            return ResponseHelper::error('لا يمكن دفع الطلب في حالته الحالية', 422);
-        }
-        $confirmed = OrderState::where('state', 'confirmed')->first();
-        if (! $confirmed) {
-            return ResponseHelper::error('حالة الطلب المؤكد غير موجودة', 500);
-        }
-        try {
-            return ResponseHelper::success(new OrderResource($this->orderService->updateOrderState($id, $confirmed->id)), 'تم تأكيد الطلب ودفعه بالنقاط');
-        } catch (\Throwable $e) {
-            return ResponseHelper::error($e->getMessage(), 422);
-        }
+
+        return ResponseHelper::success(
+            new OrderResource($order),
+            'الطلب قيد المراجعة بانتظار تأكيد أمين المكتبة، وسيصلك إشعار عند التأكيد أو الرفض'
+        );
     }
 
     public function updateProfile(Request $request)
@@ -327,7 +327,19 @@ class MemberSelfServiceController extends Controller
 
     public function notifications(Request $request)
     {
-        return ResponseHelper::success($request->user()->notifications()->paginate(20), 'تم جلب الإشعارات بنجاح');
+        $notifications = $request->user()->notifications()->paginate(20);
+        $notifications->setCollection(
+            $notifications->getCollection()->map(function ($notification) {
+                $item = $notification->toArray();
+                if (isset($item['data']) && is_array($item['data'])) {
+                    $item['data'] = MemberStatusLabels::localizePayload($item['data']);
+                }
+
+                return $item;
+            })
+        );
+
+        return ResponseHelper::success($notifications, 'تم جلب الإشعارات بنجاح');
     }
 
     public function readNotification(Request $request, string $id)

@@ -3,6 +3,7 @@
 namespace App\Notifications\Channels;
 
 use App\Services\AblyService;
+use App\Support\MemberStatusLabels;
 use Illuminate\Notifications\Notification;
 
 class AblyChannel
@@ -15,16 +16,24 @@ class AblyChannel
             return;
         }
 
-        $data = method_exists($notification, 'toAbly')
-            ? $notification->toAbly($notifiable)
-            : $notification->toArray($notifiable);
+        try {
+            $data = method_exists($notification, 'toAbly')
+                ? $notification->toAbly($notifiable)
+                : $notification->toArray($notifiable);
 
-        $this->ably->publishUserNotification((int) $notifiable->getKey(), [
-            'id' => $notification->id,
-            'type' => $notification::class,
-            'data' => $data,
-            'read_at' => null,
-            'created_at' => now()->toIso8601String(),
-        ]);
+            if (is_array($data)) {
+                $data = MemberStatusLabels::localizePayload($data);
+            }
+
+            $this->ably->publishUserNotification((int) $notifiable->getKey(), [
+                'id' => $notification->id,
+                'type' => $notification::class,
+                'data' => $data,
+                'read_at' => null,
+                'created_at' => now()->toIso8601String(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

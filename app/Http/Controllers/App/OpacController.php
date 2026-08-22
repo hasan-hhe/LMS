@@ -5,6 +5,7 @@ namespace App\Http\Controllers\App;
 use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DigitalAssetResource;
+use App\Http\Resources\ReviewResource;
 use App\Models\Book;
 use App\Services\ReviewService;
 use Illuminate\Http\Request;
@@ -62,6 +63,10 @@ class OpacController extends Controller
                 $query->where('year_of_publishing', '>=', $year);
             }
         }
+        $minRating = $request->input('min_rating', $request->input('rating'));
+        if ($minRating !== null && $minRating !== '') {
+            $query->where('rate_avg', '>=', (float) $minRating);
+        }
 
         $books = $query->paginate(min($request->integer('per_page', 15), 50))
             ->through(fn (Book $book) => $this->publicBook($book, $request));
@@ -81,7 +86,7 @@ class OpacController extends Controller
     public function show(Request $request, string $ISBN)
     {
         $this->authenticateOptional($request);
-        $book = Book::with(['author', 'digitalAsset'])
+        $book = Book::with(['author', 'digitalAsset', 'reviews.user'])
             ->withCount([
                 'instances',
                 'instances as available_count' => fn ($q) => $q->whereHas('state', fn ($state) => $state->where('state', 'available')),
@@ -96,12 +101,22 @@ class OpacController extends Controller
         $payload['can_review'] = $user
             ? $this->reviews->canReview((int) $user->id, $book->ISBN)
             : false;
+        $payload['reviews'] = ReviewResource::collection($book->reviews)->resolve($request);
+        $payload['reviews_count'] = $book->reviews->count();
 
         return ResponseHelper::success($payload, 'تم جلب الكتاب بنجاح');
     }
 
     private function publicBook(Book $book, Request $request): array
     {
+        $saleStock = (int) ($book->amount ?? 0);
+        $hasPdf = (bool) $book->digitalAsset?->hasPdf();
+        $paidPdf = $hasPdf && ! (bool) $book->digitalAsset?->is_free;
+        $formats = array_values(array_filter([
+            $saleStock > 0 ? 'paper' : null,
+            $paidPdf ? 'pdf' : null,
+        ]));
+
         return [
             'isbn' => $book->ISBN,
             'title' => $book->title,
@@ -110,10 +125,16 @@ class OpacController extends Controller
             'copies_count' => $book->instances_count,
             'available_count' => $book->available_count,
             'available_copies' => $book->available_count,
+            'sale_stock' => $saleStock,
+            'available_sale_copies' => $saleStock,
+            'has_pdf' => $hasPdf,
+            'available_formats' => $formats,
+            'can_purchase' => $saleStock > 0 || $paidPdf,
             'price_syp' => $book->price,
             'price_points' => $book->price_points,
-            'borrow_points' => (int) ($book->borrow_points ?? 0),
-            'has_borrow_points' => (int) ($book->borrow_points ?? 0) > 0,
+            'borrow_points' => (int) ($book?->borrow_points ?? 0),
+            'has_borrow_points' => (int) ($book?->borrow_points ?? 0) > 0,
+            'borrow_days' => $book?->loanPeriodDays() ?? 14,
             'rate_avg' => $book->rate_avg,
             'rating' => $book->rate_avg,
             'published_at' => $book->year_of_publishing

@@ -4,15 +4,16 @@ namespace App\Notifications;
 
 use App\Models\TopUpCode;
 use App\Notifications\Concerns\BrandedMail;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class PointsTopUpNotification extends Notification
+class PointsTopUpNotification extends QueuedNotification
 {
-    use BrandedMail, Queueable;
+    use BrandedMail;
 
-    public function __construct(public TopUpCode $topUpCode) {}
+    public function __construct(public TopUpCode $topUpCode)
+    {
+        parent::__construct();
+    }
 
     public function via(object $notifiable): array
     {

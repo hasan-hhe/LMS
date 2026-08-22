@@ -214,6 +214,8 @@ class BooksController extends Controller
 
         return response()->json([
             'book' => $book,
+            'sale_stock' => (int) ($book->amount ?? 0),
+            'available_sale_copies' => (int) ($book->amount ?? 0),
             'summary' => $summary,   // e.g. { "available": 3, "borrowed": 1 }
             'copies' => $instances,
         ]);

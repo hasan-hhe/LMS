@@ -159,6 +159,7 @@
             const map = {
                 pending: 'قيد الانتظار',
                 confirmed: 'مؤكد',
+                delivered: 'تم التسليم',
                 rejected: 'مرفوض',
                 cancelled: 'ملغى',
             };

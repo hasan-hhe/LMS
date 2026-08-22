@@ -31,7 +31,7 @@ class ReviewController extends Controller
     {
         try {
             return ResponseHelper::success(
-                ReviewResource::collection($this->reviews->listByBook($isbn)),
+                ReviewResource::collection($this->reviews->listByBook($isbn))->resolve(),
                 'تم جلب تقييمات الكتاب'
             );
         } catch (\Exception $e) {

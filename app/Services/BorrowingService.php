@@ -33,6 +33,7 @@ class BorrowingService
             $this->fineService->assertMemberHasNoUnpaidFines($member->id);
             $this->assertMemberHasNoActiveReservation($member->id);
 
+            $data['end_date'] = $this->resolveDueDate($instance, $data['end_date'] ?? null);
             $borrowing = $this->createBorrowingRecord($member->id, $librarianId, $instance, $data);
             $this->markInstanceAsBorrowed($instance);
 
@@ -62,7 +63,7 @@ class BorrowingService
         }
 
         $data = [
-            'end_date' => $endDate ?: now()->addDays($this->pointSettingService->getLoanPeriodDays())->toDateString(),
+            'end_date' => $this->resolveDueDate($instance, $endDate),
         ];
 
         $borrowing = $this->createBorrowingRecord($member->id, $librarianId, $instance, $data);
@@ -121,6 +122,10 @@ class BorrowingService
                 ? 0
                 : $this->calculateExtensionPoints($borrowing, $data['new_end_date']);
 
+            if ($this->extensionDays($borrowing, $data['new_end_date']) < 1) {
+                throw new \Exception('تاريخ التمديد يجب أن يكون بعد تاريخ انتهاء الاستعارة الحالي');
+            }
+
             BorrowingEdition::create([
                 'borrowing_id' => $borrowing->id,
                 'new_end_date' => $data['new_end_date'],
@@ -157,13 +162,16 @@ class BorrowingService
             ? $borrowing->end_date->copy()->addDays(7)->toDateString()
             : now()->addDays(7)->toDateString();
         $target = $newEndDate ?: $defaultEnd;
-        $points = $this->calculateExtensionPoints($borrowing, $target);
+        $pointsPerDay = $this->pointSettingService->getExtensionPerDayPoints();
+        $days = $this->extensionDays($borrowing, $target);
+        $points = $days * $pointsPerDay;
         $alreadyExtended = $borrowing->editions()->exists();
         $overdue = $borrowing->end_date?->isPast() ?? false;
         $returned = $borrowing->isReturned();
         $unpaidFines = $this->fineService->memberHasUnpaidFines($borrowing->member_id);
+        $minNewEnd = $borrowing->end_date?->copy()->addDay()->toDateString();
 
-        $canExtend = ! $returned && ! $overdue && ! $alreadyExtended && ! $unpaidFines;
+        $canExtend = ! $returned && ! $overdue && ! $alreadyExtended && ! $unpaidFines && $days >= 1;
         $reason = null;
         if ($returned) {
             $reason = 'تم إعادة هذا الكتاب مسبقاً';
@@ -173,13 +181,18 @@ class BorrowingService
             $reason = 'تم تمديد هذه الاستعارة مسبقاً. يمكن للأمين التمديد إدارياً';
         } elseif ($unpaidFines) {
             $reason = 'لدى العضو غرامة غير مدفوعة';
+        } elseif ($days < 1) {
+            $reason = 'تاريخ التمديد يجب أن يكون بعد تاريخ انتهاء الاستعارة الحالي';
         }
 
         return [
             'can_extend' => $canExtend,
             'already_extended' => $alreadyExtended,
             'points' => $points,
-            'days' => $this->extensionDays($borrowing, $target),
+            'points_per_day' => $pointsPerDay,
+            'days' => $days,
+            'current_end_date' => $borrowing->end_date?->toDateString(),
+            'min_new_end_date' => $minNewEnd,
             'new_end_date' => $target,
             'reason' => $reason,
         ];
@@ -207,6 +220,19 @@ class BorrowingService
         }
 
         return $borrowing;
+    }
+
+    private function resolveDueDate(BookInstance $instance, ?string $endDate = null): string
+    {
+        if (is_string($endDate) && $endDate !== '') {
+            return $endDate;
+        }
+
+        $instance->loadMissing('book');
+        $fallback = $this->pointSettingService->getLoanPeriodDays();
+        $days = $instance->book?->loanPeriodDays($fallback) ?? max(1, $fallback);
+
+        return now()->addDays($days)->toDateString();
     }
 
     private function findAndValidateMember(int $memberId): User
@@ -310,14 +336,11 @@ class BorrowingService
     private function calculateExtensionPoints(Borrowing $borrowing, string $newEndDate): int
     {
         $extraDays = $this->extensionDays($borrowing, $newEndDate);
-        $pointsPerDay = $this->pointSettingService->getFinePerDayPoints();
-        if ($pointsPerDay > 0) {
-            return $extraDays * $pointsPerDay;
+        if ($extraDays < 1) {
+            return 0;
         }
 
-        $sypPerDay = $this->pointSettingService->getFinePerDaySyp();
-
-        return $this->pointService->sypToPoints($extraDays * $sypPerDay);
+        return $extraDays * $this->pointSettingService->getExtensionPerDayPoints();
     }
 
     private function extensionDays(Borrowing $borrowing, string $newEndDate): int
@@ -326,9 +349,12 @@ class BorrowingService
             return 0;
         }
 
-        return (int) max(0, $borrowing->end_date->copy()->startOfDay()->diffInDays(
-            now()->parse($newEndDate)->startOfDay(),
-            true
-        ));
+        $currentEnd = $borrowing->end_date->copy()->startOfDay();
+        $target = now()->parse($newEndDate)->startOfDay();
+        if ($target->lte($currentEnd)) {
+            return 0;
+        }
+
+        return (int) $currentEnd->diffInDays($target, false);
     }
 }

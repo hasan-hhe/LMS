@@ -4,15 +4,17 @@ namespace App\Notifications;
 
 use App\Models\Borrowing;
 use App\Notifications\Concerns\BrandedMail;
-use Illuminate\Bus\Queueable;
+use App\Support\MemberStatusLabels;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class DueDateReminderNotification extends Notification
+class DueDateReminderNotification extends QueuedNotification
 {
-    use BrandedMail, Queueable;
+    use BrandedMail;
 
-    public function __construct(public Borrowing $borrowing) {}
+    public function __construct(public Borrowing $borrowing)
+    {
+        parent::__construct();
+    }
 
     public function via(object $notifiable): array
     {
@@ -30,13 +32,16 @@ class DueDateReminderNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
-        return [
+        $overdue = $this->borrowing->isOverdue();
+        $statusKey = $this->borrowing->isReturned() ? 'returned' : ($overdue ? 'overdue' : 'active');
+
+        return array_merge(MemberStatusLabels::notificationState($statusKey, 'borrowing'), [
             'type' => 'due_date_reminder',
             'borrowing_id' => $this->borrowing->id,
             'book_title' => $this->borrowing->bookInstance?->book?->title,
             'due_date' => $this->borrowing->end_date?->toDateString(),
             'title' => 'تذكير بموعد إعادة الكتاب',
-            'message' => 'موعد إعادة الكتاب غداً',
-        ];
+            'message' => 'موعد إعادة الكتاب غداً. حالة الاستعارة: '.MemberStatusLabels::borrowingStatus($statusKey),
+        ]);
     }
 }

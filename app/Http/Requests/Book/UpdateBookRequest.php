@@ -35,6 +35,7 @@ class UpdateBookRequest extends FormRequest
             'borrow_points' => $this->boolean('has_borrow_points')
                 ? 'required|integer|min:1'
                 : 'sometimes|nullable|integer|min:0',
+            'borrow_days' => 'sometimes|integer|min:1|max:365',
             'amount' => 'sometimes|integer|min:0',
             'year_of_publishing' => 'sometimes|string|max:4',
             'number_edition' => 'sometimes|string|max:50',
@@ -54,6 +55,9 @@ class UpdateBookRequest extends FormRequest
             'borrow_points.required' => 'حدد عدد نقاط الاستعارة',
             'borrow_points.integer' => 'نقاط الاستعارة يجب أن تكون رقماً صحيحاً',
             'borrow_points.min' => 'إذا كانت الاستعارة عليها نقاط فيجب أن تكون نقطة واحدة على الأقل',
+            'borrow_days.integer' => 'مدة الاستعارة يجب أن تكون رقماً صحيحاً',
+            'borrow_days.min' => 'مدة الاستعارة يجب أن تكون يوماً واحداً على الأقل',
+            'borrow_days.max' => 'مدة الاستعارة لا تتجاوز 365 يوماً',
             'amount.integer' => 'كمية الكتب يجب أن تكون رقماً صحيحاً',
             'cover_image.image' => 'الغلاف يجب أن يكون صورة',
             'cover_image.mimes' => 'صيغة الغلاف يجب أن تكون: png, jpg, jpeg',

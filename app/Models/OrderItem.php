@@ -15,12 +15,23 @@ class OrderItem extends Model
         'book_ISBN',
         'price_once',
         'count',
+        'format',
     ];
 
     protected $casts = [
         'price_once' => 'float',
         'count'      => 'integer',
     ];
+
+    public function isPdf(): bool
+    {
+        return ($this->format ?: 'paper') === 'pdf';
+    }
+
+    public function isPaper(): bool
+    {
+        return ! $this->isPdf();
+    }
 
     public function order()
     {

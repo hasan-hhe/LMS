@@ -68,6 +68,12 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-3 form-group mb-3">
+                                <label>مدة الاستعارة (أيام) *</label>
+                                <input type="number" min="1" max="365" name="borrow_days" class="form-control" value="14" required>
+                                <small class="form-text text-muted">عدد الأيام من التسليم حتى الإرجاع.</small>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-3 form-group mb-3">
                                 <label>عدد نسخ البيع</label>
                                 <input type="number" name="amount" class="form-control" min="0">
                                 <small class="form-text text-muted">مخزون الشراء بالنقاط.</small>

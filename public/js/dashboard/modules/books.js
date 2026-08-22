@@ -58,6 +58,7 @@
                     '<td>' + (book.category?.title || '-') + '</td>' +
                     '<td>' + (book.price_points ?? 0) + '</td>' +
                     '<td>' + ((book.borrow_points ?? 0) > 0 ? book.borrow_points : 'مجانية') + '</td>' +
+                    '<td>' + (book.borrow_days ?? 14) + ' يوم</td>' +
                     '<td>' + (book.sale_stock ?? book.amount ?? 0) + '</td>' +
                     '<td>' + (book.copies_count ?? book.instances_count ?? 0) + '</td>' +
                     '<td>' + (book.year_of_publishing || '-') + '</td>' +
@@ -139,6 +140,9 @@
             form.price.value = book.price || '';
             form.price_points.value = book.price_points ?? '';
             applyBorrowPointsFields(book.borrow_points);
+            if (form.borrow_days) {
+                form.borrow_days.value = book.borrow_days ?? 14;
+            }
             form.amount.value = book.amount ?? '';
             const copiesField = document.getElementById('current_copies_count');
             if (copiesField) {
@@ -276,6 +280,7 @@
                 '<p><strong>السعر (ل.س):</strong> ' + (book.price || 0) + '</p>' +
                 '<p><strong>سعر النقاط:</strong> ' + (book.price_points ?? 0) + ' نقطة</p>' +
                 '<p><strong>نقاط الاستعارة:</strong> ' + ((book.borrow_points ?? 0) > 0 ? book.borrow_points + ' نقطة' : 'مجانية') + '</p>' +
+                '<p><strong>مدة الاستعارة:</strong> ' + (book.borrow_days ?? 14) + ' يوم</p>' +
                 '<p><strong>نسخ البيع:</strong> ' + (book.sale_stock ?? book.amount ?? 0) + '</p>' +
                 '<p><strong>نسخ الاستعارة:</strong> ' + (book.copies_count ?? book.instances_count ?? 0) + '</p>' +
                 '<p><strong>الوصف:</strong> ' + (book.description || '') + '</p>' +

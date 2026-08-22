@@ -13,7 +13,15 @@ class FavoriteService
     {
         return Favorite::query()
             ->where('user_id', $userId)
-            ->with(['book.author', 'book.category', 'book.publisher'])
+            ->with([
+                'book' => fn ($query) => $query
+                    ->with(['author', 'category', 'publisher', 'digitalAsset'])
+                    ->withCount([
+                        'instances',
+                        'instances as available_count' => fn ($instances) => $instances
+                            ->whereHas('state', fn ($state) => $state->where('state', 'available')),
+                    ]),
+            ])
             ->latest()
             ->get();
     }

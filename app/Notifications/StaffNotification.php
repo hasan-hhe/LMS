@@ -3,20 +3,20 @@
 namespace App\Notifications;
 
 use App\Notifications\Concerns\BrandedMail;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 
-class StaffNotification extends Notification
+class StaffNotification extends QueuedNotification
 {
-    use BrandedMail, Queueable;
+    use BrandedMail;
 
     public function __construct(
         public string $title,
         public string $body,
         public ?int $senderId = null,
         public bool $sendEmail = false,
-    ) {}
+    ) {
+        parent::__construct();
+    }
 
     public function via(object $notifiable): array
     {

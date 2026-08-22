@@ -54,6 +54,7 @@ class BookService
             $copiesCount = (int) ($data['copies_count'] ?? 0);
             unset($data['copies_count'], $data['has_borrow_points']);
             $data['borrow_points'] = max(0, (int) ($data['borrow_points'] ?? 0));
+            $data['borrow_days'] = max(1, (int) ($data['borrow_days'] ?? 14));
 
             $book = $this->bookRepository->create($data);
 
@@ -99,6 +100,9 @@ class BookService
             unset($data['has_borrow_points']);
             if (array_key_exists('borrow_points', $data)) {
                 $data['borrow_points'] = max(0, (int) $data['borrow_points']);
+            }
+            if (array_key_exists('borrow_days', $data)) {
+                $data['borrow_days'] = max(1, (int) $data['borrow_days']);
             }
 
             $updated = $this->bookRepository->update($book, $data);

@@ -51,6 +51,8 @@ class MemberAppApiTest extends TestCase
         $this->getJson('/api/v1/opac/books/9780000000001')
             ->assertOk()
             ->assertJsonPath('data.title', 'كتاب عام')
+            ->assertJsonPath('data.reviews', [])
+            ->assertJsonPath('data.reviews_count', 0)
             ->assertJsonMissingPath('data.description')
             ->assertJsonMissingPath('data.publisher_id');
     }
@@ -140,7 +142,22 @@ class MemberAppApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.items.0.title', 'Book')
             ->assertJsonPath('data.items.0.available_copies', 0)
+            ->assertJsonPath('data.items.0.sale_stock', 1)
             ->assertJsonPath('data.items.0.rating', 0);
+    }
+
+    public function test_opac_filters_by_minimum_rating(): void
+    {
+        $this->createBookInstance();
+        DB::table('books')->where('ISBN', '9780000000002')->update(['rate_avg' => 4.5]);
+
+        $this->getJson('/api/v1/opac/books?min_rating=4')
+            ->assertOk()
+            ->assertJsonPath('data.meta.total', 1);
+
+        $this->getJson('/api/v1/opac/books?min_rating=5')
+            ->assertOk()
+            ->assertJsonPath('data.meta.total', 0);
     }
 
     public function test_member_borrowings_accept_current_status_alias(): void
@@ -158,7 +175,8 @@ class MemberAppApiTest extends TestCase
         $this->actingAs($member)
             ->getJson('/api/v1/member/borrowings?status=current')
             ->assertOk()
-            ->assertJsonPath('data.meta.total', 1);
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.items.0.status_label', 'قيد الاستعارة');
     }
 
     public function test_member_can_subscribe_membership_with_points(): void
@@ -212,7 +230,10 @@ class MemberAppApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.can_extend', true)
             ->assertJsonPath('data.days', 7)
-            ->assertJsonPath('data.points', 7);
+            ->assertJsonPath('data.points', 7)
+            ->assertJsonPath('data.points_per_day', 1)
+            ->assertJsonPath('data.current_end_date', $borrowing->end_date->toDateString())
+            ->assertJsonPath('data.min_new_end_date', $borrowing->end_date->copy()->addDay()->toDateString());
     }
 
     private function createBookInstance(): int

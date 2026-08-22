@@ -11,7 +11,6 @@ use App\Http\Controllers\App\OpacController;
 use App\Http\Controllers\App\RealtimeController;
 use App\Http\Controllers\App\ReviewController as MemberReviewController;
 use App\Http\Controllers\BorrowingController;
-use App\Http\Controllers\Dashboard\ReviewController;
 use App\Http\Controllers\ReservationController;
 use Illuminate\Support\Facades\Route;
 
@@ -128,7 +127,7 @@ Route::prefix('v1')
 
 Route::prefix('v1')->middleware(['auth:sanctum', 'role:ADMIN,LIBRARIAN,MEMBER'])->group(function () {
     Route::get('/realtime/token', [RealtimeController::class, 'token']);
-    Route::get('/books/{isbn}/reviews', [ReviewController::class, 'byBook']);
+    Route::get('/books/{isbn}/reviews', [MemberReviewController::class, 'byBook']);
 });
 
 Route::prefix('v1/member')->middleware(['auth:sanctum', 'role:MEMBER'])->group(function () {

@@ -49,9 +49,12 @@ class DigitalAsset extends Model
 
         return OrderItem::query()
             ->where('book_ISBN', $this->book_ISBN)
+            ->where(fn ($query) => $query
+                ->where('format', 'pdf')
+                ->orWhereNull('format'))
             ->whereHas('order', fn ($query) => $query
                 ->where('user_id', $user->id)
-                ->whereHas('state', fn ($state) => $state->where('state', 'confirmed')))
+                ->whereHas('state', fn ($state) => $state->whereIn('state', ['confirmed', 'delivered'])))
             ->exists();
     }
 

@@ -17,6 +17,7 @@ class Order extends Model
         'total_points',
         'total_amount',
         'pickup_expires_at',
+        'state_reason',
     ];
 
     protected $casts = [

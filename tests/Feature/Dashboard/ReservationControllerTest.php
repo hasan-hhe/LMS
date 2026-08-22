@@ -5,6 +5,7 @@ namespace Tests\Feature\Dashboard;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\BookInstance;
+use App\Models\Borrowing;
 use App\Models\Category;
 use App\Models\InstanceState;
 use App\Models\Publisher;
@@ -298,6 +299,39 @@ class ReservationControllerTest extends TestCase
             'id' => $this->instance->id,
             'state_id' => InstanceState::where('state', 'borrowed')->value('id'),
         ]);
+    }
+
+    public function test_fulfill_uses_book_borrow_days_for_due_date(): void
+    {
+        $this->instance->book->update(['borrow_days' => 10]);
+        $expectedDue = now()->addDays(10)->toDateString();
+
+        $reservation = Reservation::create([
+            'user_id' => $this->member->id,
+            'book_instance_id' => $this->instance->id,
+            'state_id' => $this->pendingState->id,
+            'cause' => '',
+            'reserved_at' => now(),
+        ]);
+
+        $this->instance->update([
+            'state_id' => InstanceState::where('state', 'reserved')->value('id'),
+        ]);
+
+        $token = $this->librarian->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/v1/reservations/{$reservation->id}/fulfill")
+            ->assertStatus(200)
+            ->assertJsonPath('data.borrowing.end_date', $expectedDue);
+
+        $borrowing = Borrowing::where('member_id', $this->member->id)
+            ->where('book_instance_id', $this->instance->id)
+            ->first();
+
+        $this->assertNotNull($borrowing);
+        $this->assertSame($expectedDue, $borrowing->end_date->toDateString());
+        $this->assertSame($expectedDue, $borrowing->due_date->toDateString());
     }
 
     public function test_store_fails_when_copy_is_borrowed(): void
